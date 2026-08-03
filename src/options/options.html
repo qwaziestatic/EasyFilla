@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EasyFilla Settings</title>
+    <link rel="icon" href="/icons/icon48.png" />
+    <link rel="stylesheet" href="./options.css" />
+  </head>
+  <body>
+    <main class="options">
+      <h1 class="options__title">
+        <img class="options__logo" src="/icons/icon48.png" alt="" width="32" height="32" />
+        EasyFilla Settings
+      </h1>
+
+      <section class="options__section" aria-labelledby="provider-heading">
+        <h2 id="provider-heading">AI provider</h2>
+        <p class="options__hint">
+          EasyFilla sends your documents to the provider you choose here, using <strong>your own</strong> key for
+          that provider. Keys are stored separately and only the selected provider's key is ever sent.
+        </p>
+        <label class="options__label" for="provider-select">Provider</label>
+        <select id="provider-select" class="text-input">
+          <option value="gemini">Google Gemini</option>
+          <option value="anthropic">Anthropic Claude</option>
+        </select>
+
+        <!-- Privacy-relevant: this must never be silent. Populated by
+             options.ts from the provider's own dataDestination. -->
+        <p id="provider-destination" class="input-note" role="note"></p>
+
+        <!-- Shown only when the selected provider has no key, naming WHICH key. -->
+        <p id="provider-key-warning" class="status status--warn" role="alert" hidden></p>
+
+        <!-- Shown when switching would invalidate an existing dossier. -->
+        <p id="provider-dossier-warning" class="status status--warn" role="alert" hidden></p>
+
+        <label class="options__label" for="provider-model-select">Model</label>
+        <select id="provider-model-select" class="text-input"></select>
+        <p id="provider-model-status" class="options__hint"></p>
+        <div class="button-row">
+          <button id="provider-models-refresh" type="button" class="btn btn--secondary">
+            Load models from the API
+          </button>
+          <!-- Per-provider: tests the provider selected ABOVE, with that
+               provider's key, and names which one it tested. -->
+          <button id="provider-test-connection" type="button" class="btn btn--secondary">
+            Test this provider's connection
+          </button>
+        </div>
+        <p id="connection-test-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="api-key-heading">
+        <h2 id="api-key-heading">Gemini API Key</h2>
+        <p class="options__hint">
+          Used by "Generate AI-Answered Report" to match your uploaded documents to a form's questions. Stored
+          locally in this browser only — never synced to your Google account or sent anywhere except directly to
+          Google's Gemini API when you generate a report.
+        </p>
+
+        <label class="options__label" for="gemini-api-key-input">API key</label>
+        <input
+          id="gemini-api-key-input"
+          type="password"
+          class="text-input"
+          placeholder="Paste your Gemini API key"
+          autocomplete="off"
+        />
+
+        <label class="options__label" for="model-select">Model</label>
+        <select id="model-select" class="text-input"></select>
+        <p class="options__hint">
+          Flash-Lite models generally allow more requests per minute than Flash; switching also re-paces EasyFilla's
+          request queue automatically. Free-tier limits change over time and differ per project, so we don't print
+          numbers here — check
+          <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank" rel="noopener">rate limits</a>,
+          <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener">pricing</a>, or your live limits in
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">AI Studio</a>.
+        </p>
+
+        <div class="button-row">
+          <button id="save-api-key-button" type="button" class="btn btn--primary">Save</button>
+          <button id="clear-api-key-button" type="button" class="btn btn--secondary">Clear</button>
+        </div>
+        <p id="api-key-status" class="status" role="status" aria-live="polite"></p>
+        <p class="options__hint">
+          The connection test lives with the provider selector above, because it tests whichever provider is
+          selected there — not always this one.
+        </p>
+      </section>
+
+      <section class="options__section" aria-labelledby="profile-heading">
+        <h2 id="profile-heading">Your extracted profile</h2>
+        <p class="options__hint">
+          Facts EasyFilla read from your uploaded documents (email, phone, name, links, etc.), used to answer
+          contact/identity form fields instantly — no AI call. Correct anything mis-read; your edits are kept
+          permanently and are never re-derived. Add facts the parser missed.
+        </p>
+        <div id="profile-list" class="profile-list"></div>
+        <div class="button-row">
+          <button id="profile-add-button" type="button" class="btn btn--secondary">+ Add fact</button>
+          <button id="profile-save-button" type="button" class="btn btn--primary">Save profile</button>
+        </div>
+        <p id="profile-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="declarations-heading">
+        <h2 id="declarations-heading">Standard declaration defaults</h2>
+        <p class="options__hint">
+          The compliance yes/no questions application portals repeat (disciplinary history, investigations,
+          relatives employed, conflicts of interest, reference consent, willingness to travel, certification).
+          These are never answerable from a CV and never cost an AI call. Set your usual answers once here — they
+          pre-fill every future form for you to review, and are never auto-submitted.
+        </p>
+        <div id="declarations-list" class="declarations-list"></div>
+        <div class="button-row">
+          <button id="declarations-save-button" type="button" class="btn btn--primary">Save declaration defaults</button>
+        </div>
+        <p id="declarations-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="anthropic-key-heading">
+        <h2 id="anthropic-key-heading">Anthropic API Key</h2>
+        <p class="options__hint">
+          Stored and validated separately from your Gemini key. Used only while Anthropic is the selected provider.
+          Create one at <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a>.
+        </p>
+        <label class="options__label" for="anthropic-api-key-input">API key</label>
+        <input
+          id="anthropic-api-key-input"
+          type="password"
+          class="text-input"
+          placeholder="Paste your Anthropic API key"
+          autocomplete="off"
+        />
+        <div class="button-row">
+          <button id="save-anthropic-key-button" type="button" class="btn btn--primary">Save</button>
+          <button id="clear-anthropic-key-button" type="button" class="btn btn--secondary">Clear</button>
+        </div>
+        <p id="anthropic-key-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="compose-defaults-heading">
+        <h2 id="compose-defaults-heading">Compose defaults</h2>
+        <p class="options__hint">
+          The starting length and tone for every newly composed answer. Each question keeps its own setting after
+          you change it there, so this is a starting point, not an override — changing it here does not rewrite
+          questions you have already tuned. Length is enforced as an explicit word range, not a vague adjective.
+        </p>
+        <label class="options__label" for="compose-default-length">Default length</label>
+        <select id="compose-default-length" class="text-input">
+          <option value="short">Short</option>
+          <option value="medium">Medium</option>
+          <option value="long">Long</option>
+        </select>
+        <label class="options__label" for="compose-default-tone">Default tone</label>
+        <select id="compose-default-tone" class="text-input">
+          <option value="neutral">Neutral</option>
+          <option value="formal">Formal</option>
+          <option value="conversational">Conversational</option>
+        </select>
+        <p id="compose-defaults-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="quota-heading">
+        <h2 id="quota-heading">Daily request budget</h2>
+        <p class="options__hint">
+          Google doesn't publish a free-tier daily request limit per model, and it changes over time — so EasyFilla
+          shows "daily limit unknown" rather than inventing a number. If you know yours (check
+          <a href="https://aistudio.google.com/rate-limit" target="_blank" rel="noopener">AI Studio</a>), set it here
+          and EasyFilla will warn you <em>before</em> starting a run it can't finish. It is also learned
+          automatically the first time you hit a quota error. Requests reset at midnight US Pacific time.
+        </p>
+        <label class="options__label" for="daily-limit-input">Requests per day (leave blank if unknown)</label>
+        <input id="daily-limit-input" type="number" min="1" step="1" class="text-input" placeholder="e.g. 20" />
+        <div class="button-row">
+          <button id="daily-limit-save-button" type="button" class="btn btn--primary">Save budget</button>
+        </div>
+        <p id="daily-limit-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="intro-tip-heading">
+        <h2 id="intro-tip-heading">Intro tip</h2>
+        <p class="options__hint">
+          The one-line tip shown over the startup animation ("Great files make great answers.") can be dismissed
+          forever from the splash itself. If you dismissed it and want it back — or you are checking whether it
+          still works — bring it back here. The two permanent notes beside the upload zone and each seed box are
+          never hidden and are unaffected by this.
+        </p>
+        <div class="button-row">
+          <button id="reset-intro-tip-button" type="button" class="btn btn--secondary">Show the intro tip again</button>
+        </div>
+        <p id="intro-tip-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="options__section" aria-labelledby="diagnostics-heading">
+        <h2 id="diagnostics-heading">Diagnostics</h2>
+        <p class="options__hint">
+          EasyFilla always prints a short summary per run (fields found, frames scanned, requests used, what
+          couldn't be filled and why). Turn this on to additionally print one line per field, per frame and per
+          harvested dropdown — useful when reporting a bug, noisy otherwise.
+        </p>
+        <label class="options__label" for="debug-logging-toggle">
+          <input id="debug-logging-toggle" type="checkbox" />
+          Verbose per-field logging
+        </label>
+        <p class="options__hint">
+          Your API key and the contents of your documents are <strong>never</strong> written to the console at any
+          setting, so a console copied into a bug report cannot leak them.
+        </p>
+        <p id="debug-logging-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <script type="module" src="./options.ts"></script>
+  </body>
+</html>

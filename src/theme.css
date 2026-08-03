@@ -1,0 +1,155 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   EASYFILLA THEME — THE SINGLE SOURCE OF COLOUR
+   ─────────────────────────────────────────────────────────────────────────
+   Every colour in the extension is defined here and referenced with var().
+   No other stylesheet may contain a hex literal.
+
+   ONE DOCUMENTED EXCEPTION: the splash block in `sidepanel/index.html` is
+   INLINE by design, so it paints on the first frame before the ~855 kB bundle
+   parses. It cannot @import this file without reintroducing the colour flash
+   that inlining exists to prevent. Its literals are therefore duplicated, and
+   `tests/theme-contrast.test.mjs` asserts they EQUAL the tokens below — so the
+   duplication cannot drift.
+
+   ── WHY BRIGHT ORANGE IS NEVER TEXT ────────────────────────────────────
+   #ff7a00 on white is 2.61:1. That fails WCAG AA (4.5:1) for body text and
+   even AA-large (3:1). Bold does not change a contrast ratio. So bright orange
+   is restricted to accents, borders, focus rings and hover states, and every
+   filled button uses a DEEP orange with white text:
+
+     #ffffff on #b84a00  =  5.23:1   ✓ AA  (primary fill)
+     #ffffff on #8f3900  =  7.63:1   ✓ AAA (primary fill, hover/active)
+     #b84a00 on #ffffff  =  5.23:1   ✓ AA  (brand as text/link on page bg)
+     #b84a00 on #fff4ec  =  4.83:1   ✓ AA  (brand as text on warm surface)
+
+   ── WHY THE WARNING STATE IS NO LONGER AMBER ───────────────────────────
+   The previous "needs input" pill was #92400e on #fef3c7 — a dark ORANGE on
+   pale amber. Against an orange brand that is nearly indistinguishable: an
+   orange theme must not make an orange-ish warning state invisible. The
+   semantic hues are now deliberately spread AWAY from the brand:
+
+     answered    → green   |  needs-input → blue    |  manual → violet
+     failed      → red     |  skipped     → slate
+
+   None of those is orange, so no state can be mistaken for a brand accent.
+   Failure stays RED, which is the one association worth not reinventing.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  color-scheme: light dark;
+
+  /* ── Brand ───────────────────────────────────────────────────────────── */
+  /* Accents, borders, focus rings, hover glows. NEVER text on a light bg. */
+  --brand-bright: #ff7a00;
+  /* Filled-button background with white text. 5.23:1. */
+  --brand-deep: #b84a00;
+  /* Filled-button hover/active, and brand text where more contrast helps. 7.63:1. */
+  --brand-deepest: #8f3900;
+  /* Warm tints for surfaces and subtle fills. Backgrounds only. */
+  --brand-tint: #fff4ec;
+  --brand-tint-strong: #ffe3d1;
+
+  /* ── Base ────────────────────────────────────────────────────────────── */
+  --color-bg: #ffffff;
+  --color-text: #1f2328; /* 15.80:1 on bg */
+  --color-subtle: #5c5148; /* 7.70:1 on bg — warm grey, still AA */
+  --color-border: #ecd9c9; /* decorative, not text */
+  --color-surface: var(--brand-tint);
+
+  /* `--color-primary` is kept as the name every existing rule already uses,
+     now pointing at the deep orange so no call site had to change meaning. */
+  --color-primary: var(--brand-deep);
+  --color-primary-hover: var(--brand-deepest);
+  --color-on-primary: #ffffff;
+  /* ⚠️ BRAND AS TEXT is a DIFFERENT token from brand as FILL, and must be.
+     A fill carries white text, so its ratio is independent of the page behind
+     it — #b84a00 works in both schemes. Brand as TEXT sits on the page, so on a
+     dark background the deep orange is only 3.16:1. The contrast test caught
+     exactly that on secondary buttons and links. This token flips per scheme;
+     --brand-deep never does. */
+  --brand-text: var(--brand-deep);
+
+  --color-badge-bg: var(--brand-tint-strong);
+  --color-badge-text: var(--brand-deepest);
+  --color-focus: var(--brand-bright);
+
+  /* ── Semantic states — deliberately non-orange (see header) ──────────── */
+  --state-ok-bg: #dcfce7;
+  --state-ok-text: #166534; /* 6.49:1 */
+  --state-info-bg: #dbeafe;
+  --state-info-text: #1e40af; /* 7.15:1 — replaces the amber warning */
+  --state-draft-bg: #ede9fe;
+  --state-draft-text: #5b21b6; /* 7.57:1 */
+  --state-error-bg: #fee2e2;
+  --state-error-text: #b91c1c; /* 5.30:1 */
+  --state-skipped-bg: #e2e8f0;
+  --state-skipped-text: #334155; /* 8.40:1 */
+
+  /* Borders/washes for the fill report's rows. */
+  --state-error-border: #be3c3c;
+  --state-error-wash: rgba(190, 60, 60, 0.06);
+  --state-skipped-border: #64748b;
+  --state-skipped-wash: rgba(100, 116, 139, 0.08);
+
+  /* ── Splash (mirrored inline in index.html — kept in sync by test) ───── */
+  --splash-bg: #ffffff;
+  /* ⚠️ Was #e8eaf2, i.e. near-white ON WHITE = 1.20:1 — invisible in light
+     mode. The comment beside it claimed 14.5:1, which was true only against a
+     #10131c background that no longer exists. Now 15.80:1. */
+  --splash-text: #1f2328;
+  --splash-bar: #b84a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-bright: #ff9a3c; /* lifted for a dark surface */
+    --brand-tint: #2a2622;
+    --brand-tint-strong: #3b2d23;
+
+    --color-bg: #1e1f20;
+    --color-text: #e8eaed; /* 13.74:1 on bg */
+    --color-subtle: #b5aca4; /* warm light grey */
+    --color-border: #4a3f37;
+    --color-surface: var(--brand-tint);
+
+    /* Fills keep the deep orange: a text-on-fill ratio is independent of the
+       page behind it, so 5.23:1 / 7.63:1 hold in both modes. */
+    --color-badge-bg: var(--brand-tint-strong);
+    --color-badge-text: #ffcfa8;
+
+    --state-ok-bg: #14532d;
+    --state-ok-text: #bbf7d0;
+    --state-info-bg: #172554;
+    --state-info-text: #bfdbfe;
+    --state-draft-bg: #2e1065;
+    --state-draft-text: #ddd6fe;
+    --state-error-bg: #450a0a;
+    --state-error-text: #fecaca;
+    --state-skipped-bg: #1e293b;
+    --state-skipped-text: #cbd5e1;
+
+    /* Light enough to read on the dark page: 7.81:1 on bg, 7.11:1 on surface. */
+    --brand-text: #ff9a3c;
+
+    --state-error-wash: rgba(190, 60, 60, 0.14);
+    --state-skipped-wash: rgba(100, 116, 139, 0.16);
+
+    --splash-bg: #1e1f20;
+    --splash-text: #e8eaed;
+  }
+}
+
+/* ── prefers-contrast: more ───────────────────────────────────────────────
+   Pushes every brand fill to the darkest orange and hardens borders. The
+   accent orange stops being used for anything that carries meaning. */
+@media (prefers-contrast: more) {
+  :root {
+    --brand-deep: #8f3900; /* 7.63:1 with white */
+    --brand-deepest: #7a3000; /* darker still */
+    --brand-text: #7a3000;
+    --color-subtle: #3d352e;
+    --color-border: #8f3900;
+    --state-error-text: #8b0000;
+    --state-info-text: #16308c;
+  }
+}

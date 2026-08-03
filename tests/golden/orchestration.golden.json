@@ -1,0 +1,655 @@
+{
+  "_note": "Orchestration inputs (HANDOFF §6b / E3b). Any diff is a failure.",
+  "stages": {
+    "stageA_buildDossier": [
+      {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "=== DOCUMENT: cv.pdf (application/pdf) ==="
+          },
+          {
+            "type": "document",
+            "mime_type": "application/pdf",
+            "data": "base64:sha256:a23af1c8de98d84b"
+          },
+          {
+            "type": "text",
+            "text": "=== DOCUMENT: id-photo.png (image/png) ==="
+          },
+          {
+            "type": "image",
+            "mime_type": "image/png",
+            "data": "base64:sha256:762cb4c4845c8ac2"
+          },
+          {
+            "type": "text",
+            "text": "Build the dossier from the documents above. Attribute every value to the exact filename it came from. Prefer labelled key-value rows over prose inference. Omit anything the documents do not state."
+          }
+        ],
+        "system_instruction": "You are extracting a factual dossier from a person's own documents so that forms can be filled on their behalf.\n\nRULES:\n1. Extract ONLY what the documents actually contain. Never infer a plausible value. An absent field is simply omitted.\n2. PREFER LABELLED KEY-VALUE DATA OVER PROSE. If a document is a reference sheet, table, or form with rows like\n   'Full Name | Jane Doe', 'Email | ...', 'University | ...', 'Department / Major | ...',\n   those rows are the single most reliable source in the entire set. Use them verbatim and mark them confidence 'high'.\n   A value read from such a row ALWAYS beats the same field inferred from prose, a letterhead, or a header.\n3. Never mistake an institution, department, faculty, or document title for a person's name. A letterhead like\n   'School of Engineering and Applied Science' is the issuing body, not the applicant.\n4. For scanned or photographed documents, read the image directly. If a passport machine-readable zone (the two\n   long <<< lines) is visible, decode it — it is more reliable than the printed fields above it.\n5. source_filename must be the exact filename given for the document the value came from.\n6. confidence: 'high' = stated explicitly in a label/value pair or machine-readable zone; 'medium' = stated in prose;\n   'low' = inferred from layout or context. Prefer omitting a field to guessing it.\n7. evidence[] must quote the VERBATIM snippet supporting each important claim, so a human can check it.\n8. Use snake_case keys: full_name, preferred_name, date_of_birth, nationality, gender, passport_number,\n   national_id, email, phone, address, city, country, linkedin, github, website.",
+        "generation_config": {
+          "thinking_level": "medium"
+        },
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "identity": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "snake_case field name, e.g. full_name, email, phone"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "source_filename": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value",
+                    "source_filename",
+                    "confidence"
+                  ]
+                }
+              },
+              "contact": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "snake_case field name, e.g. full_name, email, phone"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "source_filename": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value",
+                    "source_filename",
+                    "confidence"
+                  ]
+                }
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "snake_case field name, e.g. full_name, email, phone"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "source_filename": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value",
+                    "source_filename",
+                    "confidence"
+                  ]
+                }
+              },
+              "preferences": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "snake_case field name, e.g. full_name, email, phone"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "source_filename": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "value",
+                    "source_filename",
+                    "confidence"
+                  ]
+                }
+              },
+              "education": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "institution": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "program": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "level": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "dates": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "status": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "id_number": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    }
+                  }
+                }
+              },
+              "experience": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "role": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "dates": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    },
+                    "description": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "string"
+                        },
+                        "source_filename": {
+                          "type": "string"
+                        },
+                        "confidence": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "value",
+                        "source_filename",
+                        "confidence"
+                      ]
+                    }
+                  }
+                }
+              },
+              "documents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "doc_type": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "doc_type",
+                    "summary"
+                  ]
+                }
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string"
+                    },
+                    "source_filename": {
+                      "type": "string"
+                    },
+                    "page_or_region": {
+                      "type": "string"
+                    },
+                    "verbatim_snippet": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "claim",
+                    "source_filename",
+                    "verbatim_snippet"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "identity",
+              "contact",
+              "education",
+              "experience",
+              "skills",
+              "documents",
+              "evidence"
+            ]
+          }
+        },
+        "store": false
+      }
+    ],
+    "stageB_answerFromDossier": [
+      {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "=== DOSSIER (the only facts you may use) ===\n{\n \"identity\": {\n  \"full_name\": {\n   \"value\": \"Test Person\",\n   \"source_filename\": \"cv.pdf\",\n   \"confidence\": \"high\"\n  }\n },\n \"contact\": {},\n \"skills\": {},\n \"preferences\": {},\n \"education\": [],\n \"experience\": []\n}\n\nAnswer in the language of the questions.\n\n=== QUESTIONS ===\n0. [short_answer] Full name\n1. [paragraph] Why do you want this role?\n\nReturn exactly 2 entries, one per question_id above."
+          }
+        ],
+        "system_instruction": "You fill forms on a person's behalf using ONLY the structured dossier provided. The dossier was extracted from\ntheir own uploaded documents. You never see the raw documents and must not invent facts beyond the dossier.\n\nSTATUS RULES:\n- answered_from_documents: the dossier directly supports this value. Set `source` to the dossier's source_filename.\n- drafted: an open-ended question the dossier supports well enough to write a genuine answer for. Say so honestly.\n- needs_user_input: the dossier does NOT contain what's needed. `value` MUST be empty, and `reasoning_brief` MUST be\n  a specific one-line question asking the user for exactly the missing detail. Never fabricate, never stay silent.\n- manual_only: passwords, payment details, signatures, CAPTCHAs, or anything a person must supply in person.\n\nCHOICE QUESTIONS ARE NOT EXEMPT FROM EVIDENCE. Picking one of the form's own options does not make the choice\ngrounded. You must still cite the dossier field and filename that justify choosing THAT option; only `snippet`\nmay be empty for them. If the dossier says nothing about which option applies — e.g. which operating system or\nversion control system the person uses — return needs_user_input with evidence: []. Do NOT guess an option.\n\nCHOICE QUESTIONS: when a question lists options, `value` MUST be one of those option strings copied VERBATIM,\ncharacter for character. Do not paraphrase, re-case, or abbreviate. If none genuinely fits, use needs_user_input.\nFor multi-select questions, `value` is a JSON array of verbatim option strings.\n\nEVIDENCE — every answer carries an `evidence` array naming the dossier field, the source filename, the value\nthat entry implies, and the supporting snippet. When several documents support the SAME value, list them all:\ncorroboration is the strongest grounding available. When two documents genuinely disagree (two different phone\nnumbers, two spellings of a name), list BOTH with their differing implied_value — do not silently pick one.\nThe supporting snippet. Returning `evidence: []` is CORRECT and EXPECTED whenever the dossier does not support an\nanswer. It is not a failure and you are not being graded on filling it. An empty evidence array with a\nneeds_user_input status is a perfect response.\n\nANTI-FABRICATION — this is the most important rule here:\nYou must NEVER invent a claim about the user's current state, opinions, or circumstances in order to avoid\nreturning an empty answer. Sentences like 'I am not currently facing any technical hurdles', 'I have no\nsuggestions at this time', or 'everything appears to be clear' are FABRICATIONS unless the dossier actually\nsays so. You do not know whether the user has hurdles or suggestions. Returning needs_user_input with a\nspecific question is ALWAYS the correct answer there — it is not a failure, it is the honest result.\n\nA blank field is always better than a wrong one. This is a real application form.",
+        "generation_config": {
+          "thinking_level": "medium"
+        },
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question_id": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "answered_from_documents",
+                    "drafted",
+                    "needs_user_input",
+                    "manual_only"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "description": "The literal text to type. For multi-select, a JSON array of exact option strings."
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Filename the fact came from, or empty when not document-sourced."
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "reasoning_brief": {
+                  "type": "string",
+                  "description": "One short clause. For needs_user_input, the specific question to ask the user."
+                },
+                "evidence": {
+                  "type": "array",
+                  "description": "The dossier support for this answer. EMPTY ARRAY when the dossier does not support it — that is a correct and expected outcome, never a failure.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "dossier_path": {
+                        "type": "string",
+                        "description": "Dotted path into the dossier, e.g. identity.full_name"
+                      },
+                      "source_filename": {
+                        "type": "string",
+                        "description": "The exact filename the dossier attributed this to"
+                      },
+                      "implied_value": {
+                        "type": "string",
+                        "description": "The value THIS entry alone supports, normalized to how it would be typed into the field. Two entries supporting the same fact must carry the same implied_value. If two documents genuinely disagree, give each its own differing implied_value — do not silently pick one."
+                      },
+                      "snippet": {
+                        "type": "string",
+                        "description": "The supporting text. May be empty for CHOICE questions, where the justification is a dossier field rather than a quotable sentence — but dossier_path and source_filename are still required."
+                      }
+                    },
+                    "required": [
+                      "dossier_path",
+                      "source_filename",
+                      "implied_value"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "question_id",
+                "status",
+                "value",
+                "confidence",
+                "reasoning_brief",
+                "evidence"
+              ]
+            }
+          }
+        },
+        "store": false
+      }
+    ],
+    "compose": [
+      {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "You are expanding a user's ROUGH SEED NOTES into a polished answer for each open-ended form question.\nSTRICT GROUNDING RULE: the answer may ONLY use facts from (1) the user's seed notes, (2) the structured profile, and (3) the uploaded document text. You may organize, connect, and polish, but you must NOT add any employer, date, technology, outcome, metric, or achievement that appears in none of these.\nWhere the seed is thin, write around what you have and record what's missing in `gaps` — NEVER pad with invention.\nHARD-FAIL RULE: if a question's seed notes are empty AND nothing in the profile/documents is relevant, set notFound=true and draft=\"\". An empty seed must never produce a generic essay.\nFollow any per-question [User guidance] to steer emphasis and style.\n- Each question below carries its own TARGET LENGTH in words and its own TONE. Apply them per question; do not average them across the batch.\n- The word target is a CEILING GOVERNED BY EVIDENCE, not a quota to fill. If the seed and documents do not support the target, write the shorter honest answer and record the shortfall in `gaps`. NEVER pad to reach a word count — inventing a sentence to hit a number is the exact failure this tool exists to prevent.\n- Tone changes register only. It never changes which facts are used, and never adds a claim.\n- Write every answer in the SAME LANGUAGE the form questions are written in, regardless of what language the uploaded documents use.\nList in groundedDocuments the exact names of the uploaded documents you drew facts from (from this list): cv.pdf\nRespond with one entry per question index, in the given schema.\n\n=== Structured profile ===\n(no structured profile extracted)\n\n=== Uploaded document text ===\ncv.pdf contents here\n\n=== Questions (with the user's seed notes) ===\n1. (essay) Why do you want this role?\n   [Target: 120–220 words] [Tone: neutral and plain. Straightforward professional prose. No slogans, no salesmanship, no filler adjectives.]\n   [User's seed notes: worked on distributed systems; want more impact]"
+          }
+        ],
+        "generation_config": {
+          "thinking_level": "medium"
+        },
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "questionIndex": {
+                  "type": "integer"
+                },
+                "draft": {
+                  "type": "string",
+                  "description": "The composed answer text ONLY, in the form's language. Empty string if notFound is true."
+                },
+                "notFound": {
+                  "type": "boolean",
+                  "description": "true ONLY if the user's seed is empty AND the documents/profile contain nothing relevant, so no grounded answer is possible. When true, draft MUST be empty — never fabricate."
+                },
+                "sourced": {
+                  "type": "boolean",
+                  "description": "true if the draft is grounded in specific facts from the documents/profile."
+                },
+                "seedUsed": {
+                  "type": "boolean",
+                  "description": "true if the user's seed text was used to ground the draft."
+                },
+                "groundedDocuments": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Names of the uploaded documents whose content grounded this draft. Empty if notFound."
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Short notes on what specific information the user would need to add to strengthen a thin answer. Never invent facts to fill these — report them instead."
+                }
+              },
+              "required": [
+                "questionIndex",
+                "draft",
+                "notFound",
+                "sourced",
+                "seedUsed",
+                "groundedDocuments",
+                "gaps"
+              ]
+            }
+          }
+        },
+        "store": false
+      }
+    ]
+  }
+}

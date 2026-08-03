@@ -1,0 +1,734 @@
+@import "../theme.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+}
+
+.panel {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel__header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.panel__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel__logo {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.panel__header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+
+.panel__subtitle {
+  margin: 0;
+  color: var(--color-subtle);
+  line-height: 1.4;
+}
+
+.panel__hint {
+  margin: 0;
+  color: var(--color-subtle);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+/* TASK A — the permanent expectation-setting note. Two placements: beside the
+   upload zone and beside each seed box. NOT dismissible: a user who dismissed
+   the splash note still needs this where the advice is actionable.
+   Uses --color-text (not --color-subtle) deliberately — this is guidance that
+   changes what the user does, not de-emphasised chrome, and subtle grey on the
+   surface fill is the first thing that gets skipped. */
+.input-note {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 4px 4px 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.input-note--seed {
+  margin: 0.4rem 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* TASK B — segmented radiogroups for Length and Tone. Real buttons with
+   role="radio"; the styling below never substitutes for the semantics. */
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+  flex-wrap: wrap;
+}
+
+.segmented__legend {
+  font-size: 0.72rem;
+  color: var(--color-subtle);
+  min-width: 3.2rem;
+}
+
+.segmented__group {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented__option {
+  appearance: none;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.segmented__option:last-child {
+  border-right: 0;
+}
+
+.segmented__option:hover {
+  background: var(--color-surface);
+}
+
+/* Focus must be visible for the roving-tabindex pattern to be usable at all —
+   without it a keyboard user cannot tell which option they are on. */
+.segmented__option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.segmented__option--on,
+.segmented__option[aria-checked="true"] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 600;
+}
+
+.segmented__option[aria-checked="true"]:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Selection must not be conveyed by colour alone (WCAG 1.4.1). The check mark
+   carries the same information for a user who cannot distinguish the fill. */
+.segmented__option[aria-checked="true"]::before {
+  content: "✓ ";
+}
+
+.compose__recompose {
+  margin-top: 0.4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented__option {
+    transition: none;
+  }
+
+  /* TASK C — the running indicator must still be VISIBLE, just not animated.
+     Dropping the animation alone would leave a static broken-circle glyph that
+     reads as a rendering fault, so it becomes a solid dot: unmistakably an
+     indicator, and distinct from the queued bar. */
+  .compose__btn--running::before {
+    animation: none;
+    border: none;
+    border-radius: 50%;
+    background: currentColor;
+    width: 0.55em;
+    height: 0.55em;
+  }
+}
+
+.language-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.language-row__label {
+  color: var(--color-subtle);
+  white-space: nowrap;
+}
+
+.language-row select {
+  flex: 1;
+}
+
+/* RTL: the whole panel flips when a right-to-left form language is
+   detected (dir="rtl" is set on <html> by applyLanguageToUi). */
+:root[dir="rtl"] .panel {
+  direction: rtl;
+}
+
+.link-button {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  /* Brand as TEXT — must be the scheme-aware token, not the fill colour. */
+  color: var(--brand-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.link-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  color: var(--color-subtle);
+  cursor: default;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+}
+
+.panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.panel__section h2 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-subtle);
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  /* PART 2 — bold labels. Note bold does NOT substitute for contrast: the
+     ratio is carried by the deep-orange fill, not by the weight. */
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn--secondary {
+  background: transparent;
+  /* Bright orange is fine on a BORDER — it carries no text contrast burden. */
+  border-color: var(--brand-bright);
+  color: var(--brand-text);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.status {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--color-subtle);
+  font-size: 0.85rem;
+}
+
+.questions-list,
+.uploaded-files-list,
+.refinement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.questions-list__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.questions-list__text {
+  line-height: 1.35;
+}
+
+.badge {
+  flex-shrink: 0;
+  background: var(--color-badge-bg);
+  color: var(--color-badge-text);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.badge--subjective {
+  background: var(--state-draft-bg);
+  color: var(--state-draft-text);
+}
+
+.file-input-label {
+  display: block;
+}
+
+.uploaded-files-list__item {
+  padding: 0.5rem 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.uploaded-files-list__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.uploaded-files-list__name {
+  overflow-wrap: anywhere;
+}
+
+.uploaded-files-list__progress {
+  margin: 0;
+  color: var(--color-subtle);
+  font-size: 0.78rem;
+}
+
+.uploaded-files-list__preview summary {
+  cursor: pointer;
+  color: var(--color-subtle);
+  font-size: 0.78rem;
+}
+
+.uploaded-files-list__preview pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+}
+
+.refinement-list__item {
+  padding: 0.6rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.refinement-list__question {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.refinement-list__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.refinement-list__option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.refinement-list__textarea {
+  padding: 0.5rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.refinement-list__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--color-subtle);
+}
+
+.pdf-link-container:empty {
+  display: none;
+}
+
+.pdf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.pdf-link::before {
+  content: "📄";
+  font-size: 0.9em;
+}
+
+.pdf-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Feature 3: composition controls ─────────────────────────────────── */
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--color-border);
+}
+
+.compose__guidance {
+  font-size: 0.82rem;
+}
+
+.compose__btn {
+  align-self: flex-start;
+}
+
+/* ── TASK C — in-button compose indicator ─────────────────────────────────
+   The spinner lives INSIDE the triggering button. Only that button is
+   disabled; everything else on the panel stays usable.
+
+   ⚠️ RUNNING AND QUEUED ARE DELIBERATELY DIFFERENT. Concurrency is 1 and
+   settled (§3), so queued is the ORDINARY state the moment a second question
+   is composed. A queued button that spins claims a request is in flight when
+   none has been sent — and a user watching two spinners for one request reads
+   the queue as broken when the second takes twice as long. Running spins;
+   queued shows a STATIC bar and its position. */
+.compose__btn--running::before,
+.compose__btn--queued::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.45em;
+  vertical-align: -0.05em;
+}
+
+.compose__btn--running::before {
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: compose-spin 0.7s linear infinite;
+}
+
+/* Static, and visibly NOT a spinner: a waiting job looks like waiting. */
+.compose__btn--queued::before {
+  border-radius: 1px;
+  background: currentColor;
+  height: 0.25em;
+  opacity: 0.55;
+}
+
+@keyframes compose-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.compose__cancel {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+}
+
+/* ── TASK D2 — side-by-side variant picker ────────────────────────────────
+   Side by side so the drafts can actually be COMPARED, which is the entire
+   point; a stacked list of three paragraphs is read sequentially, not
+   compared. Wraps on a narrow panel rather than overflowing. */
+.compose__variants-heading {
+  margin: 0.5rem 0 0.3rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.compose__variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.compose__variant {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+/* Selection is NOT colour-only (WCAG 1.4.1): a ✓ and a heavier border carry it
+   too, matching the segmented-control decision in §4g. */
+.compose__variant[aria-checked="true"] {
+  border-color: currentColor;
+  border-width: 2px;
+}
+
+.compose__variant[aria-checked="true"] .compose__variant-label::before {
+  content: "✓ ";
+}
+
+.compose__variant-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.compose__variant-text {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  /* Long drafts scroll inside their own card rather than stretching the row. */
+  max-height: 9rem;
+  overflow-y: auto;
+}
+
+/* A polite live region must be announced but not seen. `display: none` and
+   `visibility: hidden` would remove it from the accessibility tree, which
+   defeats the point. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.compose__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.btn--tiny {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.btn--tiny:hover {
+  background: var(--color-surface);
+}
+
+.compose__provenance {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--color-subtle);
+}
+
+.compose__provenance--fail {
+  color: var(--state-error-text);
+  font-weight: 500;
+}
+
+.refinement-list__compose-all {
+  border: none;
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.refinement-list__hint--warn {
+  color: var(--state-error-text);
+  font-style: normal;
+}
+
+/* ── Feature 2: Google Forms manual-attach pause ─────────────────────── */
+.manual-attach {
+  margin-top: 0.6rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.manual-attach__msg {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+/* ── Problem 2: taxonomy state pills ──────────────────────────────────── */
+.badge--answered { background: var(--state-ok-bg); color: var(--state-ok-text); }
+.badge--draft,
+.badge--needs-input { background: var(--state-info-bg); color: var(--state-info-text); }
+.badge--manual { background: var(--state-draft-bg); color: var(--state-draft-text); }
+.badge--error { background: var(--state-error-bg); color: var(--state-error-text); }
+@media (prefers-color-scheme: dark) {
+  .badge--answered { background: var(--state-ok-bg); color: var(--state-ok-text); }
+  .badge--draft,
+  .badge--needs-input { background: var(--state-info-bg); color: var(--state-info-text); }
+  .badge--manual { background: var(--state-draft-bg); color: var(--state-draft-text); }
+  .badge--error { background: var(--state-error-bg); color: var(--state-error-text); }
+}
+
+/* ── Problem 3: elicitation prompt + seed box ─────────────────────────── */
+.compose__elicit {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.compose__seed {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* FIX 4.3: persistent AI/quota status line */
+.connection-status { font-size: 0.75rem; }
+.connection-status--error { color: var(--state-error-text); font-weight: 500; }
+@media (prefers-color-scheme: dark) {
+  .connection-status--error { color: var(--state-error-text); }
+}
+
+/* Per-question fill report. Failures sort first and are visually loud: the
+   whole point is that a partial fill must not be discoverable only by
+   scrolling the form. */
+.fill-report__heading {
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0.35rem;
+}
+
+.fill-report {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.fill-report__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  align-items: start;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.fill-report__row--failed {
+  border-color: var(--state-error-border);
+  background: var(--state-error-wash);
+}
+
+.fill-report__row--skipped {
+  border-color: var(--state-skipped-border);
+  background: var(--state-skipped-wash);
+}
+
+.fill-report__question {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.fill-report__reason,
+.fill-report__row .link-button {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  margin: 0;
+  text-align: left;
+}
+
+.fill-report__reason {
+  color: var(--color-subtle);
+}

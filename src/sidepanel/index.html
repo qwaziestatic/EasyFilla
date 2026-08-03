@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EasyFilla</title>
+    <link rel="icon" href="/icons/icon48.png" />
+    <link rel="stylesheet" href="./sidepanel.css" />
+    <!-- Task 2: startup splash. Styles are INLINE so it paints on the first
+         frame, before the ~855 kB sidepanel bundle parses. Background is
+         hardcoded per theme (matching sidepanel.css --color-bg) so there's no
+         color flash if the stylesheet lands a frame later. -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: #ffffff;
+        transition: opacity 240ms ease;
+      }
+      @media (prefers-color-scheme: dark) {
+        #splash {
+          background: #1e1f20;
+        }
+        /* Mirrors --splash-text / --color-on-primary for the dark scheme. */
+        .splash__note {
+          color: #e8eaed;
+        }
+        .splash__note-dismiss {
+          color: #ff9a3c;
+          border-color: rgba(255, 154, 60, 0.5);
+        }
+      }
+      #splash.splash--hide {
+        opacity: 0;
+      }
+      /* Wrapper lets the spark burst overlay the logo, centered. */
+      .splash__logo-wrap {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+      .splash__logo {
+        width: 76px;
+        height: 76px;
+        /* One timeline: fade in early, hold through the bars, then a snap
+           pop at ~2.5s (synced with the spark) — the finger-snap climax. */
+        animation: splash-logo 3200ms ease-out both;
+      }
+      .splash__spark {
+        position: absolute;
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        pointer-events: none;
+        background: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.95) 0%,
+          rgba(255, 214, 110, 0.65) 28%,
+          rgba(255, 214, 110, 0) 68%
+        );
+        opacity: 0;
+        transform: scale(0.2);
+        animation: splash-spark 720ms ease-out 2450ms both;
+      }
+      .splash__bars {
+        width: 150px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+      }
+      .splash__bar {
+        height: 9px;
+        width: var(--w);
+        border-radius: 5px;
+        background: #b84a00;
+        transform: scaleX(0);
+        transform-origin: left;
+        /* Only scaleX animates — never width — so no per-frame layout. */
+        animation: splash-bar 750ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+        animation-delay: var(--d);
+      }
+      @keyframes splash-logo {
+        0% {
+          opacity: 0;
+          transform: scale(0.94);
+        }
+        13% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        76% {
+          transform: scale(1);
+        }
+        81% {
+          transform: scale(1.1);
+        }
+        87% {
+          transform: scale(0.97);
+        }
+        94% {
+          transform: scale(1);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes splash-spark {
+        0% {
+          opacity: 0;
+          transform: scale(0.2);
+        }
+        25% {
+          opacity: 1;
+          transform: scale(0.95);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.7);
+        }
+      }
+      @keyframes splash-bar {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash__logo {
+          animation: none;
+          opacity: 1;
+        }
+        .splash__spark {
+          display: none;
+        }
+        .splash__bar {
+          animation: none;
+          transform: scaleX(1);
+        }
+      }
+
+      /* TASK A — expectation-setting note.
+         Fades in over the animation without delaying or blocking it: the
+         splash's own dismissal timer is untouched, and this is purely
+         additive paint. Under reduced-motion it simply appears. */
+      .splash__note {
+        max-width: 30rem;
+        margin: 1.5rem auto 0;
+        padding: 0 1.25rem;
+        text-align: center;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        /* ⚠️ FIXED (PART 2). This was #e8eaf2 — near-white — and the comment
+           claimed "≈ 14.5:1 on the #10131c splash". The splash background is
+           #ffffff in light mode, so the real ratio was 1.20:1: the notice was
+           effectively INVISIBLE to a light-mode user. The 14.5:1 figure was true
+           only against a dark background that no longer exists.
+           Now #1f2328 on #ffffff = 15.80:1, and #e8eaed on #1e1f20 = 13.74:1. */
+        color: #1f2328;
+        /* The CONTAINER no longer animates as a block; each word does (below),
+           so the line assembles instead of appearing all at once. */
+      }
+
+      /* PART 3 — per-word staggered reveal.
+         Each word carries its own --word-delay, set in sidepanel.ts. Only
+         opacity/transform animate, so there is no per-frame layout and nothing
+         the splash timers wait on. */
+      .splash__note-word {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(4px);
+        animation: splash-note-word 420ms ease-out both;
+        animation-delay: calc(700ms + var(--word-delay, 0ms));
+      }
+
+      /* Skipped intro: land the whole line at once rather than freezing it
+         half-revealed. Overrides the per-word delays. */
+      .splash__note--revealed .splash__note-word {
+        animation: none;
+        opacity: 1;
+        transform: none;
+      }
+
+      @keyframes splash-note-word {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .splash__note-dismiss {
+        display: inline-block;
+        margin-top: 0.85rem;
+        padding: 0.4rem 0.85rem;
+        border: 1px solid rgba(184, 74, 0, 0.5);
+        border-radius: 999px;
+        background: transparent;
+        color: #b84a00;
+        font: inherit;
+        font-size: 0.82rem;
+        cursor: pointer;
+      }
+      .splash__note-dismiss:hover {
+        background: rgba(255, 122, 0, 0.12);
+      }
+      .splash__note-dismiss:focus-visible {
+        outline: 2px solid #ff7a00;
+        outline-offset: 2px;
+      }
+      @keyframes splash-note {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash__note {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        /* No stagger at all — the full line is present immediately. */
+        .splash__note-word {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Rendered on first paint (before the module script). Plays a ~3.8s
+         intro; removed by sidepanel.ts (min 3.8s so the full sequence plays,
+         max 6s so a hung init never traps the user). -->
+    <!-- TASK A: the splash is no longer aria-hidden as a whole. The logo and
+         bars are decorative and stay hidden from assistive tech; the
+         expectation-setting note is real content and must be announced. -->
+    <div id="splash">
+      <div class="splash__logo-wrap" aria-hidden="true">
+        <img class="splash__logo" src="/icons/icon128.png" alt="" width="76" height="76" />
+        <span class="splash__spark"></span>
+      </div>
+      <div class="splash__bars" aria-hidden="true">
+        <span class="splash__bar" style="--w: 100%; --d: 500ms"></span>
+        <span class="splash__bar" style="--w: 78%; --d: 1050ms"></span>
+        <span class="splash__bar" style="--w: 56%; --d: 1600ms"></span>
+      </div>
+      <!-- Hidden by default; sidepanel.ts reveals it unless the user has
+           dismissed it. Never delays the splash's own removal timer. -->
+      <div id="splash-note" class="splash__note" role="note" hidden>
+        <p id="splash-note-text"></p>
+        <button id="splash-note-dismiss" type="button" class="splash__note-dismiss">
+          Got it — don't show again
+        </button>
+      </div>
+    </div>
+    <main class="panel">
+      <header class="panel__header">
+        <div class="panel__header-row">
+          <div class="panel__brand">
+            <img class="panel__logo" src="/icons/icon48.png" alt="" width="24" height="24" />
+            <h1>EasyFilla Agent</h1>
+          </div>
+          <button id="open-settings-button" type="button" class="link-button">⚙ Settings</button>
+        </div>
+        <p class="panel__subtitle">
+          Scan a form, upload your documents, and review the agent's answers before anything gets filled in.
+          Works on Google Forms and generic web application forms.
+        </p>
+        <p id="adapter-mode" class="status" role="status" aria-live="polite"></p>
+        <p id="connection-status" class="status connection-status" role="status" aria-live="polite"></p>
+        <button id="grant-access-button" type="button" class="btn btn--primary" hidden></button>
+        <label class="language-row">
+          <span class="language-row__label">Form language</span>
+          <select id="language-select" class="text-input"></select>
+        </label>
+      </header>
+
+      <section class="panel__section" aria-labelledby="scan-heading">
+        <h2 id="scan-heading">1. Scan Form</h2>
+        <button id="scan-button" type="button" class="btn btn--primary">Scan Active Form</button>
+        <p id="scan-status" class="status" role="status" aria-live="polite"></p>
+        <ul id="questions-list" class="questions-list"></ul>
+      </section>
+
+      <section class="panel__section" aria-labelledby="upload-heading">
+        <h2 id="upload-heading">2. Upload Documents</h2>
+        <!-- TASK A: permanent, never dismissible. A splash note is easily
+             missed; this sits at the moment the advice is actionable. -->
+        <p id="input-note-files" class="input-note" role="note"></p>
+        <label class="file-input-label" for="document-upload">
+          <input id="document-upload" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.txt" />
+        </label>
+        <p id="upload-summary" class="panel__hint" role="status" aria-live="polite"></p>
+        <ul id="uploaded-files-list" class="uploaded-files-list"></ul>
+        <p id="dossier-status" class="panel__hint" role="status" aria-live="polite">
+          Dossier: not built yet.
+        </p>
+        <div class="inline-actions">
+          <button id="rebuild-dossier-button" type="button" class="link-button" disabled>
+            Rebuild dossier
+          </button>
+          <button id="clear-files-button" type="button" class="link-button">Clear all files</button>
+          <button id="export-diagnostics-button" type="button" class="link-button" disabled>
+            Export read diagnostics
+          </button>
+        </div>
+        <p class="panel__hint">
+          Diagnostics show exactly what was read from each file and what was derived from it. Saved to your
+          computer — it contains your document text, so review it before sharing.
+        </p>
+      </section>
+
+      <section class="panel__section" aria-labelledby="generate-heading">
+        <h2 id="generate-heading">3. Export Form to PDF</h2>
+        <p class="panel__hint">A plain structural copy of every question across every page — no AI involved.</p>
+        <button id="generate-pdf-button" type="button" class="btn btn--secondary">
+          Export Form to PDF
+        </button>
+        <p id="generate-status" class="status" role="status" aria-live="polite"></p>
+        <div id="export-pdf-link" class="pdf-link-container"></div>
+      </section>
+
+      <section class="panel__section" aria-labelledby="ai-report-heading">
+        <h2 id="ai-report-heading">4. Generate AI-Answered Report</h2>
+        <p class="panel__hint">Requires a Gemini API key — set one under ⚙ Settings above.</p>
+        <button id="generate-ai-report-button" type="button" class="btn btn--primary">
+          Generate AI-Answered Report
+        </button>
+        <p id="ai-report-status" class="status" role="status" aria-live="polite"></p>
+        <div id="ai-report-pdf-link" class="pdf-link-container"></div>
+      </section>
+
+      <section class="panel__section" aria-labelledby="refine-heading">
+        <h2 id="refine-heading">5. Review &amp; Refine</h2>
+        <p class="panel__hint">
+          Questions the AI couldn't confidently answer from your documents — typically personal or subjective
+          ones. Where possible it's pre-filled a suggested draft below; review, edit, or replace it, then save to
+          merge your answers into the report and the form-filling data.
+        </p>
+        <ul id="refinement-list" class="refinement-list"></ul>
+        <button id="save-refinement-button" type="button" class="btn btn--secondary" disabled>
+          Save Manual Answers
+        </button>
+        <p id="refinement-status" class="status" role="status" aria-live="polite"></p>
+        <!-- D1 — queue depth. The first number is 0 or 1 by design: concurrency
+             is 1 and settled (§3), so this reports reality rather than a cap. -->
+        <p id="compose-queue-depth" class="panel__hint" role="status" aria-live="polite"></p>
+        <!-- TASK C — a POLITE live region announcing compose start and finish, so
+             a screen-reader user is not left guessing whether a press registered.
+             Separate from the status line so an announcement never overwrites an
+             error the user has not read yet. -->
+        <p id="compose-live-region" class="visually-hidden" role="status" aria-live="polite"></p>
+        <div id="refinement-pdf-link" class="pdf-link-container"></div>
+      </section>
+
+      <section class="panel__section" aria-labelledby="confirm-fill-heading">
+        <h2 id="confirm-fill-heading">6. Continue and Fill</h2>
+        <p class="panel__hint">
+          Fills the open form with the answers from the report above, once you've opened and reviewed the PDF.
+          Never submits — you review the filled form and click its own Submit button yourself.
+        </p>
+        <button id="confirm-fill-button" type="button" class="btn btn--primary" disabled>
+          Continue and Fill
+        </button>
+        <p id="confirm-fill-status" class="status" role="status" aria-live="polite"></p>
+        <div id="fill-report" hidden>
+          <h3 class="fill-report__heading">Fill report</h3>
+          <ul id="fill-report-list" class="fill-report"></ul>
+          <button id="retry-failed-button" type="button" class="btn btn--secondary" hidden>
+            Retry failed fields
+          </button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./sidepanel.ts"></script>
+  </body>
+</html>

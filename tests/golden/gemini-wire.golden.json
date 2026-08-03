@@ -1,0 +1,725 @@
+{
+  "_note": "Byte-identical gate for the Gemini wire format (HANDOFF.md §1, §6b.2). Any diff is a failure. Regenerate only with a doc-backed reason.",
+  "interactionsApiRevision": "2026-05-20",
+  "headers": {
+    "interactions": {
+      "Content-Type": "application/json",
+      "x-goog-api-key": "TEST-KEY-NOT-A-REAL-SECRET",
+      "Api-Revision": "2026-05-20"
+    },
+    "generateContent": {
+      "Content-Type": "application/json",
+      "x-goog-api-key": "TEST-KEY-NOT-A-REAL-SECRET"
+    }
+  },
+  "requests": {
+    "interactions :: text only, no schema": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: text only, with schema (schema casing split)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          }
+        ],
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "question_id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "string"
+                          },
+                          "source_filename": {
+                            "type": "string"
+                          },
+                          "snippet": {
+                            "type": "string"
+                          },
+                          "implied_value": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "store": false
+      }
+    },
+    "interactions :: text + system instruction + thinking + maxTokens": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          }
+        ],
+        "system_instruction": "You are a careful extractor. Cite every value.",
+        "generation_config": {
+          "thinking_level": "medium",
+          "max_output_tokens": 4096
+        },
+        "store": false
+      }
+    },
+    "interactions :: PART VARIANT 1 — inline image bytes": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "image",
+            "mime_type": "image/png",
+            "data": "aGVsbG8td29ybGQ="
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: PART VARIANT 2 — inline document bytes": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "document",
+            "mime_type": "application/pdf",
+            "data": "JVBERi0xLjQK"
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: PART VARIANT 3 — Files API uri (document)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "document",
+            "uri": "https://generativelanguage.googleapis.com/v1beta/files/abc-123",
+            "mime_type": "application/pdf"
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: PART VARIANT 3 — Files API uri (image)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "image",
+            "uri": "https://generativelanguage.googleapis.com/v1beta/files/def-456",
+            "mime_type": "image/jpeg"
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: mixed: text + inline + uri in one request": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "image",
+            "mime_type": "image/png",
+            "data": "aGVsbG8td29ybGQ="
+          },
+          {
+            "type": "document",
+            "uri": "https://generativelanguage.googleapis.com/v1beta/files/abc-123",
+            "mime_type": "application/pdf"
+          }
+        ],
+        "system_instruction": "Dossier build.",
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "question_id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "string"
+                          },
+                          "source_filename": {
+                            "type": "string"
+                          },
+                          "snippet": {
+                            "type": "string"
+                          },
+                          "implied_value": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "store": false
+      }
+    },
+    "interactions :: relaxed safety (generateContent-only field)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.5-flash-lite",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "image",
+            "mime_type": "image/png",
+            "data": "aGVsbG8td29ybGQ="
+          }
+        ],
+        "store": false
+      }
+    },
+    "interactions :: full house — every field set at once": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+      "body": {
+        "model": "gemini-3.6-flash",
+        "input": [
+          {
+            "type": "text",
+            "text": "Extract the applicant's full name."
+          },
+          {
+            "type": "document",
+            "mime_type": "application/pdf",
+            "data": "JVBERi0xLjQK"
+          },
+          {
+            "type": "image",
+            "uri": "https://generativelanguage.googleapis.com/v1beta/files/def-456",
+            "mime_type": "image/jpeg"
+          }
+        ],
+        "system_instruction": "Answer strictly from the dossier.",
+        "generation_config": {
+          "thinking_level": "high",
+          "max_output_tokens": 8192
+        },
+        "response_format": {
+          "type": "text",
+          "mime_type": "application/json",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "answers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "question_id": {
+                      "type": "integer"
+                    },
+                    "value": {
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "string"
+                          },
+                          "source_filename": {
+                            "type": "string"
+                          },
+                          "snippet": {
+                            "type": "string"
+                          },
+                          "implied_value": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "store": false
+      }
+    },
+    "generateContent :: text only, no schema": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generateContent :: text only, with schema (schema casing split)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              }
+            ]
+          }
+        ],
+        "generationConfig": {
+          "responseMimeType": "application/json",
+          "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+              "answers": {
+                "type": "ARRAY",
+                "items": {
+                  "type": "OBJECT",
+                  "properties": {
+                    "question_id": {
+                      "type": "INTEGER"
+                    },
+                    "value": {
+                      "type": "STRING"
+                    },
+                    "evidence": {
+                      "type": "ARRAY",
+                      "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "STRING"
+                          },
+                          "source_filename": {
+                            "type": "STRING"
+                          },
+                          "snippet": {
+                            "type": "STRING"
+                          },
+                          "implied_value": {
+                            "type": "STRING"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "generateContent :: text + system instruction + thinking + maxTokens": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              }
+            ]
+          }
+        ],
+        "systemInstruction": {
+          "parts": [
+            {
+              "text": "You are a careful extractor. Cite every value."
+            }
+          ]
+        },
+        "generationConfig": {
+          "thinkingLevel": "medium",
+          "maxOutputTokens": 4096
+        }
+      }
+    },
+    "generateContent :: PART VARIANT 1 — inline image bytes": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "aGVsbG8td29ybGQ="
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generateContent :: PART VARIANT 2 — inline document bytes": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "inline_data": {
+                  "mime_type": "application/pdf",
+                  "data": "JVBERi0xLjQK"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generateContent :: PART VARIANT 3 — Files API uri (document)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "file_data": {
+                  "mime_type": "application/pdf",
+                  "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/abc-123"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generateContent :: PART VARIANT 3 — Files API uri (image)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "file_data": {
+                  "mime_type": "image/jpeg",
+                  "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/def-456"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "generateContent :: mixed: text + inline + uri in one request": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "aGVsbG8td29ybGQ="
+                }
+              },
+              {
+                "file_data": {
+                  "mime_type": "application/pdf",
+                  "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/abc-123"
+                }
+              }
+            ]
+          }
+        ],
+        "systemInstruction": {
+          "parts": [
+            {
+              "text": "Dossier build."
+            }
+          ]
+        },
+        "generationConfig": {
+          "responseMimeType": "application/json",
+          "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+              "answers": {
+                "type": "ARRAY",
+                "items": {
+                  "type": "OBJECT",
+                  "properties": {
+                    "question_id": {
+                      "type": "INTEGER"
+                    },
+                    "value": {
+                      "type": "STRING"
+                    },
+                    "evidence": {
+                      "type": "ARRAY",
+                      "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "STRING"
+                          },
+                          "source_filename": {
+                            "type": "STRING"
+                          },
+                          "snippet": {
+                            "type": "STRING"
+                          },
+                          "implied_value": {
+                            "type": "STRING"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "generateContent :: relaxed safety (generateContent-only field)": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "aGVsbG8td29ybGQ="
+                }
+              }
+            ]
+          }
+        ],
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          }
+        ]
+      }
+    },
+    "generateContent :: full house — every field set at once": {
+      "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+      "body": {
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Extract the applicant's full name."
+              },
+              {
+                "inline_data": {
+                  "mime_type": "application/pdf",
+                  "data": "JVBERi0xLjQK"
+                }
+              },
+              {
+                "file_data": {
+                  "mime_type": "image/jpeg",
+                  "file_uri": "https://generativelanguage.googleapis.com/v1beta/files/def-456"
+                }
+              }
+            ]
+          }
+        ],
+        "safetySettings": [
+          {
+            "category": "HARM_CATEGORY_HARASSMENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_HATE_SPEECH",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          },
+          {
+            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "threshold": "BLOCK_ONLY_HIGH"
+          }
+        ],
+        "systemInstruction": {
+          "parts": [
+            {
+              "text": "Answer strictly from the dossier."
+            }
+          ]
+        },
+        "generationConfig": {
+          "responseMimeType": "application/json",
+          "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+              "answers": {
+                "type": "ARRAY",
+                "items": {
+                  "type": "OBJECT",
+                  "properties": {
+                    "question_id": {
+                      "type": "INTEGER"
+                    },
+                    "value": {
+                      "type": "STRING"
+                    },
+                    "evidence": {
+                      "type": "ARRAY",
+                      "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                          "dossier_path": {
+                            "type": "STRING"
+                          },
+                          "source_filename": {
+                            "type": "STRING"
+                          },
+                          "snippet": {
+                            "type": "STRING"
+                          },
+                          "implied_value": {
+                            "type": "STRING"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "thinkingLevel": "high",
+          "maxOutputTokens": 8192
+        }
+      }
+    }
+  }
+}
