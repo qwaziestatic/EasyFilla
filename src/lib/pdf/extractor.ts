@@ -2,6 +2,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { createWorker, OEM } from "tesseract.js";
 import type { Worker as TesseractWorker } from "tesseract.js";
+import { unzipSync } from "fflate";
 
 // Bundled locally (see scripts/copy-tesseract-assets.mjs) rather than fetched
 // from a CDN — required under MV3's default CSP and the project's
@@ -36,6 +37,62 @@ function isImageFileType(file: File): boolean {
 
 function isPlainTextFileType(file: File): boolean {
   return file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
+}
+
+const OFFICE_EXTENSIONS = /\.(docx|xlsx|pptx|odt|ods|odp|rtf|csv)$/i;
+const LEGACY_OFFICE_EXTENSIONS = /\.(doc|xls|ppt)$/i;
+
+function isOfficeFileType(file: File): boolean {
+  return OFFICE_EXTENSIONS.test(file.name);
+}
+
+function isArchiveFileType(file: File): boolean {
+  return file.type === "application/zip" || file.name.toLowerCase().endsWith(".zip");
+}
+
+function isMediaFileType(file: File): boolean {
+  return file.type.startsWith("audio/") || file.type.startsWith("video/") || /\.(mp3|wav|m4a|ogg|mp4|mov|webm|avi|mkv)$/i.test(file.name);
+}
+
+export type SupportedDocumentKind = "pdf" | "image" | "text" | "office" | "archive" | "media" | "unsupported";
+
+export function supportedDocumentKind(file: Pick<File, "name" | "type">): SupportedDocumentKind {
+  if (isPdfFileType(file as File)) return "pdf";
+  if (isImageFileType(file as File)) return "image";
+  if (isPlainTextFileType(file as File)) return "text";
+  if (isOfficeFileType(file as File)) return "office";
+  if (isArchiveFileType(file as File)) return "archive";
+  if (isMediaFileType(file as File)) return "media";
+  return "unsupported";
+}
+
+async function extractOfficeText(file: File, onProgress?: ProgressCallback): Promise<string> {
+  onProgress?.({ stage: "Reading office document", progress: 0.2 });
+  const { OfficeParser } = await import("officeparser");
+  const ast = await OfficeParser.parseOffice(file, { extractAttachments: false });
+  const result = await ast.to("text");
+  onProgress?.({ stage: "Done", progress: 1 });
+  return result.value.trim();
+}
+
+async function extractPlainText(file: File, onProgress?: ProgressCallback): Promise<string> {
+  onProgress?.({ stage: "Reading text file", progress: 1 });
+  return (await file.text()).trim();
+}
+
+async function extractZipText(file: File, onProgress?: ProgressCallback): Promise<string> {
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const entries = Object.entries(archive).filter(([name]) => !name.endsWith("/") && !/^(__MACOSX|\.git)\//i.test(name));
+  const supported = entries.find(([name]) => OFFICE_EXTENSIONS.test(name) || /\.txt$/i.test(name));
+  if (!supported) {
+    throw new Error("ZIP archives must contain a supported text or office document.");
+  }
+  const [name, bytes] = supported;
+  onProgress?.({ stage: `Reading ${name} from archive`, progress: 0.5 });
+  const nested = new File([bytes], name, { type: "" });
+  return /\.txt$/i.test(name)
+    ? extractPlainText(nested, onProgress)
+    : extractOfficeText(nested, onProgress);
 }
 
 async function createLocalTesseractWorker(onProgress?: ProgressCallback): Promise<TesseractWorker> {
@@ -128,7 +185,7 @@ export interface DocumentDiagnostic {
   fileName: string;
   sizeBytes: number;
   mimeType: string;
-  kind: "pdf" | "image" | "text" | "unsupported";
+  kind: SupportedDocumentKind;
   source: "fresh" | "cache";
   pages: PageDiagnostic[];
   totalChars: number;
@@ -192,7 +249,7 @@ async function extractPdfText(
     if (ocrWorker) {
       await ocrWorker.terminate();
     }
-    await pdf.destroy();
+    await pdf.cleanup();
   }
 
   onProgress?.({ stage: "Done", progress: 1 });
@@ -253,13 +310,7 @@ async function writeOcrCache(hash: string, text: string): Promise<void> {
 }
 
 function documentKind(file: File): DocumentDiagnostic["kind"] {
-  if (isPdfFileType(file)) {
-    return "pdf";
-  }
-  if (isImageFileType(file)) {
-    return "image";
-  }
-  return isPlainTextFileType(file) ? "text" : "unsupported";
+  return supportedDocumentKind(file);
 }
 
 function recordDiagnostic(
@@ -284,7 +335,7 @@ export async function extractText(file: File, onProgress?: ProgressCallback): Pr
     hash = await contentHash(file);
     const cached = await readOcrCache(hash);
     if (cached !== null) {
-      console.log(`EasyFilla(extract): "${file.name}" — cache hit (${cached.length} chars), no re-processing.`);
+      console.log(`EasyFilla(extract): cache hit (${cached.length} chars), no re-processing.`);
       onProgress?.({ stage: "Loaded from cache", progress: 1 });
       recordDiagnostic(file, { source: "cache", pages: [], rawText: cached });
       return cached;
@@ -302,17 +353,29 @@ export async function extractText(file: File, onProgress?: ProgressCallback): Pr
       text = await extractImageText(file, onProgress);
       pageLog.push({ page: 1, path: "ocr", chars: text.length });
     } else if (isPlainTextFileType(file)) {
-      onProgress?.({ stage: "Reading text file", progress: 1 });
-      text = (await file.text()).trim();
+      text = await extractPlainText(file, onProgress);
       pageLog.push({ page: 1, path: "native-text", chars: text.length });
+    } else if (isOfficeFileType(file)) {
+      text = await extractOfficeText(file, onProgress);
+      pageLog.push({ page: 1, path: "native-text", chars: text.length });
+    } else if (isArchiveFileType(file)) {
+      text = await extractZipText(file, onProgress);
+      pageLog.push({ page: 1, path: "native-text", chars: text.length });
+    } else if (isMediaFileType(file)) {
+      throw new Error(
+        "Audio and video files are detected but cannot be transcribed locally yet. Upload a transcript or convert the media to a supported document.",
+      );
     } else {
+      if (LEGACY_OFFICE_EXTENSIONS.test(file.name)) {
+        throw new Error("Legacy DOC/XLS/PPT files are not supported. Save them as DOCX/XLSX/PPTX and upload again.");
+      }
       throw new Error(`Unsupported file type: ${file.type || file.name}`);
     }
   } catch (error) {
     // Surface the ACTUAL cause (including string rejections from tesseract)
     // instead of a generic "Extraction failed."
     const detail = describeThrown(error);
-    console.error(`EasyFilla(extract): "${file.name}" failed —`, detail, error);
+    console.error(`EasyFilla(extract): failed — ${detail}`);
     recordDiagnostic(file, { source: "fresh", pages: pageLog, rawText: "", error: detail });
     throw new Error(`Couldn't read "${file.name}": ${detail}`);
   }
@@ -323,7 +386,7 @@ export async function extractText(file: File, onProgress?: ProgressCallback): Pr
   recordDiagnostic(file, { source: "fresh", pages: pageLog, rawText: text });
   const ocrPages = pageLog.filter((p) => p.path === "ocr").length;
   console.log(
-    `EasyFilla(extract): "${file.name}" — extracted ${text.length} chars ` +
+    `EasyFilla(extract): extracted ${text.length} chars ` +
       `(${pageLog.length} page(s): ${pageLog.length - ocrPages} native-text, ${ocrPages} OCR).`,
   );
   return text;

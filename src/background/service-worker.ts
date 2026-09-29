@@ -25,7 +25,7 @@ import {
   type FrameHelloResponse,
   type GetSectionInfoResponse,
 } from "../lib/messaging/messages";
-import { debugLog, initDebugLogging } from "../lib/debug";
+import { debugLog, initDebugLogging, safeUrl } from "../lib/debug";
 
 const registry = new FrameRegistry();
 void initDebugLogging();
@@ -104,12 +104,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const url = sender.url ?? message.href;
     registry.noteHello(tabId, frameId, url);
     const response: FrameHelloResponse = { frameId, tabId, url };
-    debugLog(`[EasyFilla] frame hello — tab ${tabId} frame ${frameId} (${url})`);
+    debugLog(`[EasyFilla] frame hello — tab ${tabId} frame ${frameId} (${safeUrl(url)})`);
     sendResponse(response);
     return false;
   }
 
   if (isScanAllFramesRequest(message)) {
+    // Only extension pages may request a merged scan. The tab ID is carried
+    // by the sidepanel, but must agree with the browser-provided sender
+    // context whenever Chrome supplies one; content scripts cannot choose an
+    // arbitrary tab to inspect.
+    const isExtensionPage = sender.id === chrome.runtime.id && sender.tab === undefined;
+    if (!isExtensionPage) {
+      sendResponse(undefined);
+      return false;
+    }
     void scanAllFrames(message.tabId).then(sendResponse);
     return true; // async
   }
@@ -139,7 +148,7 @@ chrome.webNavigation.onCompleted.addListener((details) => {
   // the next scan sees it without any re-scan being forced on the user.
   const record = registry.get(details.tabId, details.frameId);
   if (record && !record.scan) {
-    console.log(`[EasyFilla] frame ${details.frameId} finished loading (${details.url}) — will be scanned next pass.`);
+    debugLog(`[EasyFilla] frame ${details.frameId} finished loading (${safeUrl(details.url)}) — will be scanned next pass.`);
   }
 });
 
@@ -302,6 +311,6 @@ async function scanAllFrames(tabId: number): Promise<MergedScan & { error?: stri
     generations: registry.generations(tabId),
   });
 
-  console.log(`[EasyFilla] merged scan for tab ${tabId}:\n${describeFrameCoverage(merged)}`);
+  debugLog(`[EasyFilla] merged scan for tab ${tabId}:\n${describeFrameCoverage(merged)}`);
   return merged;
 }

@@ -5,6 +5,7 @@ import { textSimilarity } from "../../../lib/text/fuzzy-match";
 import type { FillableAnswer, FileAttachment, FillPayload } from "../../../types/questions";
 import type { FillLogEntry, VisibleSectionFillResult } from "../adapter";
 import { debugLog } from "../../../lib/debug";
+import { queryAllOpenRoots } from "../../shared/dom-roots";
 
 const MATCH_THRESHOLD = 0.55;
 const COMBOBOX_OPEN_DELAY_MS = 250;
@@ -185,7 +186,20 @@ async function fillCustomCombobox(element: HTMLElement, answer: string): Promise
   element.click();
   await wait(COMBOBOX_OPEN_DELAY_MS);
 
-  const options = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).filter(
+  const controlledId = element.getAttribute("aria-controls") || element.getAttribute("aria-owns");
+  const controlled = controlledId
+    ? queryAllOpenRoots<HTMLElement>(`#${CSS.escape(controlledId)}`)
+    : [];
+  const optionRoots = controlled.length > 0
+    ? controlled.flatMap((owner) => [
+        owner,
+        ...(owner.shadowRoot ? [owner.shadowRoot] : []),
+      ])
+    : undefined;
+  const options = (optionRoots
+    ? optionRoots.flatMap((root) => Array.from(root.querySelectorAll<HTMLElement>('[role="option"]')))
+    : queryAllOpenRoots<HTMLElement>('[role="option"]')
+  ).filter(
     (option) => option.getClientRects().length > 0,
   );
   if (options.length === 0) {

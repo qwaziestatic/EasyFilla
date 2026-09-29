@@ -673,6 +673,25 @@ export async function verifyConfiguredModels(): Promise<ModelAvailability> {
 // rather than silently truncating or emitting a generic AI error, oversized sets
 // fail with a message naming the specific files to shrink.
 const MAX_INLINE_ENCODED_BYTES = 18 * 1024 * 1024;
+const MAX_MEDIA_BYTES = 100 * 1024 * 1024;
+
+function isMediaFile(file: File): boolean {
+  return file.type.startsWith("audio/") || file.type.startsWith("video/") ||
+    /\.(mp3|wav|m4a|ogg|flac|aac|mp4|mov|webm|avi|mkv|mpeg|mpg)$/i.test(file.name);
+}
+
+export function mediaConsentRequired(files: File[]): boolean {
+  return files.some(isMediaFile);
+}
+
+export function validateMediaFiles(files: File[]): string | null {
+  const oversized = files.filter((file) => isMediaFile(file) && file.size > MAX_MEDIA_BYTES);
+  if (oversized.length === 0) return null;
+  return (
+    `Media files are limited to ${MAX_MEDIA_BYTES / 1024 / 1024} MB each for transcription. ` +
+    `Too large: ${oversized.map((file) => `"${file.name}"`).join(", ")}. Trim or compress the media and try again.`
+  );
+}
 
 async function fileToBase64(file: File): Promise<string> {
   const buffer = new Uint8Array(await file.arrayBuffer());
@@ -694,7 +713,11 @@ export interface DossierBuildResult {
   fromCache: boolean;
 }
 
-export async function buildDossier(files: File[], onProgress?: (stage: string) => void): Promise<DossierBuildResult> {
+export async function buildDossier(
+  files: File[],
+  onProgress?: (stage: string) => void,
+  options?: { allowMedia?: boolean },
+): Promise<DossierBuildResult> {
   // 0b — pace from the ACTIVE provider before the first request of this run.
   // A provider switch re-paces here rather than waiting for Settings to be
   // reopened, and Anthropic learned limits apply from the response onward.
@@ -709,6 +732,18 @@ export async function buildDossier(files: File[], onProgress?: (stage: string) =
   // that load moved into the branch that uses it, below.
   if (files.length === 0) {
     throw new GeminiRequestError("No documents uploaded — nothing to build a dossier from.", false, "bad_request");
+  }
+  const mediaError = validateMediaFiles(files);
+  if (mediaError) {
+    throw new GeminiRequestError(mediaError, false, "bad_request");
+  }
+  if (mediaConsentRequired(files) && options?.allowMedia !== true) {
+    throw new GeminiRequestError(
+      "Audio/video transcription requires explicit consent because the original media will be sent to Google Gemini. " +
+        "Confirm the media-sharing option before rebuilding the dossier.",
+      false,
+      "bad_request",
+    );
   }
 
   // TASK E3.5 — the cache key includes PROVIDER and MODEL, so a dossier built
@@ -1435,7 +1470,7 @@ export async function answerFromDossier(
         } else if (cited.length > 1) {
           const files = [...new Set(cited.map((ev) => ev.source_filename))];
           if (files.length > 1) {
-            console.log(`[EasyFilla][StageB] Q${id}: corroborated by ${files.join(", ")} — confidence raised.`);
+            debugLog(`[EasyFilla][StageB] Q${id}: corroborated by ${files.length} file(s) — confidence raised.`);
           }
         }
 

@@ -8,6 +8,7 @@ import {
 } from "../../shared/options";
 import type { CoverageReport } from "../adapter";
 import { debugLog } from "../../../lib/debug";
+import { collectOpenRoots, type SearchRoot } from "../../shared/dom-roots";
 
 // Choice types that are unanswerable without options.
 const CHOICE_TYPES_NEEDING_OPTIONS = new Set(["multiple_choice", "checkboxes", "dropdown", "linear_scale"]);
@@ -54,14 +55,17 @@ const FIELD_SELECTOR = [
   '[role="listbox"]',
   '[role="radio"]',
   '[role="checkbox"]',
+  '[role="switch"]',
+  '[role="spinbutton"]',
+  '[aria-haspopup="listbox"]',
+  '[aria-haspopup="combobox"]',
+  '[data-testid*="select" i][tabindex]',
   '[contenteditable="true"]',
 ].join(", ");
 
 const SKIPPED_INPUT_TYPES = new Set(["hidden", "submit", "button", "reset", "image"]);
 const PAYMENT_PATTERN = /card[\s_-]?number|cc[\s_-]?num|cvv|cvc|security[\s_-]?code|expir/i;
 const CAPTCHA_FRAME_PATTERN = /recaptcha|hcaptcha|turnstile/i;
-
-type SearchRoot = Document | ShadowRoot;
 
 // Collects every readable root WITHIN THIS FRAME: its own document plus open
 // shadow roots at any depth.
@@ -76,23 +80,7 @@ type SearchRoot = Document | ShadowRoot;
 // listed twice. Frame traversal now belongs to the service worker's registry,
 // which reconciles against the real frame tree.
 function collectSearchRoots(): { roots: SearchRoot[]; inaccessibleFrames: number } {
-  const roots: SearchRoot[] = [document];
-
-  // Open shadow roots, breadth-first, including shadow-within-shadow.
-  const shadowQueue: SearchRoot[] = [...roots];
-  while (shadowQueue.length > 0) {
-    const root = shadowQueue.shift();
-    if (!root) {
-      break;
-    }
-    root.querySelectorAll("*").forEach((element) => {
-      const shadow = (element as HTMLElement).shadowRoot;
-      if (shadow) {
-        roots.push(shadow);
-        shadowQueue.push(shadow);
-      }
-    });
-  }
+  const roots = collectOpenRoots();
 
   // The only frame-level blocker this frame can diagnose by itself: a child
   // iframe sandboxed without allow-scripts can never run a content script, so
@@ -132,6 +120,12 @@ function labelFromAriaLabelledBy(element: HTMLElement): string {
       .map((id) => root.querySelector(`#${CSS.escape(id)}`)?.textContent ?? "")
       .join(" "),
   );
+}
+
+function referencedText(element: HTMLElement, attribute: string): string {
+  const ids = element.getAttribute(attribute)?.split(/\s+/).filter(Boolean) ?? [];
+  const root = element.getRootNode() as SearchRoot;
+  return cleanText(ids.map((id) => root.querySelector(`#${CSS.escape(id)}`)?.textContent ?? "").join(" "));
 }
 
 function nearestPrecedingText(element: HTMLElement): string {
@@ -201,11 +195,27 @@ export function resolveFieldLabel(element: HTMLElement): string {
     return placeholder;
   }
 
+  for (const attribute of ["title", "data-label", "data-field-label", "data-testid"]) {
+    const value = cleanText(element.getAttribute(attribute));
+    if (value && (attribute !== "data-testid" || !/^(input|field|control)$/i.test(value))) {
+      return prettifyIdentifier(value);
+    }
+  }
+
   // LAST RESORT. On dense portal layouts this reliably picks up the previous
   // field's text, so everything above is preferred.
   const preceding = nearestPrecedingText(element);
   if (preceding) {
     return preceding;
+  }
+
+  // Description is not normally an accessible name, but it is a useful
+  // final fallback for custom controls that expose no label at all.
+  const described = cleanText(
+    element.getAttribute("aria-description") || referencedText(element, "aria-describedby"),
+  );
+  if (described) {
+    return described;
   }
 
   const name = element.getAttribute("name") ?? element.id;
@@ -310,7 +320,12 @@ function classifyStandalone(candidate: Candidate): GenericQuestion | null {
     options = Array.from((element as HTMLSelectElement).options)
       .map((option) => cleanText(option.textContent))
       .filter((text, index) => text.length > 0 && !(index === 0 && /^(select|choose|--)/i.test(text)));
-  } else if (role === "combobox" || role === "listbox") {
+  } else if (
+    role === "combobox" ||
+    role === "listbox" ||
+    element.getAttribute("aria-haspopup") === "listbox" ||
+    element.getAttribute("aria-haspopup") === "combobox"
+  ) {
     // A custom (div-based) dropdown: options usually only exist in the DOM
     // while it's open, so they can't be listed here.
     type = "dropdown";
@@ -318,7 +333,7 @@ function classifyStandalone(candidate: Candidate): GenericQuestion | null {
   } else if (tag === "textarea") {
     type = "paragraph";
     fillKind = "textarea";
-  } else if (element.getAttribute("contenteditable") === "true" || role === "textbox") {
+  } else if (element.getAttribute("contenteditable") === "true" || role === "textbox" || role === "spinbutton") {
     type = "paragraph";
     fillKind = "contenteditable";
   } else if (tag === "input") {
@@ -667,7 +682,7 @@ export function scanGenericPage(): GenericPageScan {
     const input = candidate.element as HTMLInputElement;
     const role = candidate.element.getAttribute("role");
     const isRadio = input.type === "radio" || role === "radio";
-    const isCheckbox = input.type === "checkbox" || role === "checkbox";
+    const isCheckbox = input.type === "checkbox" || role === "checkbox" || role === "switch";
 
     if (isRadio) {
       const key = groupKeyFor(candidate, "radio");
@@ -800,7 +815,24 @@ export function scanGenericPage(): GenericPageScan {
   const byType = new Map<string, number>();
   kept.forEach((q) => byType.set(q.type, (byType.get(q.type) ?? 0) + 1));
   const canvasOnly =
-    kept.length === 0 && document.querySelectorAll("canvas, embed[type='application/pdf'], object[type='application/pdf']").length > 0;
+    kept.length === 0 &&
+    roots.some(
+      (root) =>
+        root.querySelector("canvas, embed[type='application/pdf'], object[type='application/pdf']") !== null,
+    );
+
+  if (canvasOnly) {
+    kept.push({
+      questionText: "Canvas/PDF-rendered form",
+      type: "unknown",
+      options: [],
+      required: false,
+      manualOnly: true,
+      manualReason: "the controls are rendered without readable form fields; complete this section manually",
+      fillKind: "none",
+      elements: [],
+    });
+  }
 
   const coverage: CoverageReport = {
     adapter: "generic",

@@ -312,6 +312,5 @@ in the extension's release notes.
 
 ## 10. Contact
 
-<!-- TODO before store submission: replace with a real, monitored contact.
-     Chrome Web Store requires a working contact address for the developer. -->
-**[CONTACT EMAIL — REQUIRED BEFORE SUBMISSION]**
+For support, use the contact channel listed on the EasyFilla Chrome Web Store
+developer page. A monitored address must be configured there before publication.

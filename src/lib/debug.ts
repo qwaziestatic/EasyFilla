@@ -67,3 +67,13 @@ export function debugLog(...args: unknown[]): void {
   }
 }
 
+export function safeUrl(value: string | null | undefined): string {
+  if (!value) {
+    return "(unknown URL)";
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "(invalid URL)";
+  }
+}

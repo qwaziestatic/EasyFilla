@@ -8,7 +8,7 @@ import { rmSync } from "node:fs";
 
 const bundles = [
   ["src/lib/ai/gemini-client.ts", "tests/_bundle-agree.mjs", "assessEvidenceAgreement"],
-  ["src/lib/profile/extract.ts", "tests/_bundle-extract.mjs", "extractProfileFromDocuments"],
+  ["src/lib/profile/extract.ts", "tests/_bundle-profile.mjs", "extractProfileFromDocuments"],
   ["src/content-scripts/adapters/identity.ts", "tests/_bundle-identity.mjs", "dedupeByIdentity"],
   // STAGE 2a. frame-registry.ts is deliberately free of chrome APIs and DOM so
   // the hard parts — cross-frame ordering, dedup, lifecycle — are testable

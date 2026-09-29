@@ -22,6 +22,7 @@ import {
 import { MODEL_OPTIONS, loadSelectedModel, saveSelectedModel } from "../lib/ai/model-config";
 import { resetInputNote, isInputNoteDismissed } from "../lib/ui-prefs";
 import { loadProfile, updateProfileFacts } from "../lib/profile/storage";
+import { clearAllSensitiveData, purgeExpiredSensitiveData } from "../lib/storage/sensitive-data";
 import type { ProfileFact, ProfileFieldKind } from "../lib/profile/types";
 
 const apiKeyInput = document.getElementById("gemini-api-key-input") as HTMLInputElement;
@@ -34,6 +35,8 @@ const profileList = document.getElementById("profile-list") as HTMLDivElement;
 const profileAddButton = document.getElementById("profile-add-button") as HTMLButtonElement;
 const profileSaveButton = document.getElementById("profile-save-button") as HTMLButtonElement;
 const profileStatus = document.getElementById("profile-status") as HTMLParagraphElement;
+const clearAllDataButton = document.getElementById("clear-all-data-button") as HTMLButtonElement;
+const dataStatus = document.getElementById("sensitive-data-status") as HTMLParagraphElement;
 
 function setStatus(message: string): void {
   statusText.textContent = message;
@@ -60,6 +63,24 @@ async function loadExistingKey(): Promise<void> {
 }
 
 void loadExistingKey();
+void purgeExpiredSensitiveData();
+
+clearAllDataButton.addEventListener("click", () => {
+  void (async () => {
+    clearAllDataButton.disabled = true;
+    try {
+      await clearAllSensitiveData();
+      apiKeyInput.value = "";
+      dataStatus.textContent = "All saved API keys, profiles, dossiers, OCR caches, and uploaded-file references were cleared.";
+      await loadExistingKey();
+      await loadProfileEditor();
+    } catch (error) {
+      dataStatus.textContent = error instanceof Error ? error.message : "Couldn't clear saved sensitive data.";
+    } finally {
+      clearAllDataButton.disabled = false;
+    }
+  })();
+});
 
 saveButton.addEventListener("click", () => {
   void (async () => {
@@ -113,11 +134,17 @@ void initModelSelect();
 testConnectionButton.addEventListener("click", () => {
   void (async () => {
     testConnectionButton.disabled = true;
-    const selected = getProvider(providerSelect.value as ProviderId);
-    connectionTestStatus.textContent = `Testing ${selected.displayName}…`;
-    const result = await testProviderConnection();
-    connectionTestStatus.textContent = `${result.ok ? "✓" : "✗"} ${result.message}`;
-    testConnectionButton.disabled = false;
+    try {
+      const selected = getProvider(providerSelect.value as ProviderId);
+      connectionTestStatus.textContent = `Testing ${selected.displayName}…`;
+      const result = await testProviderConnection();
+      connectionTestStatus.textContent = `${result.ok ? "✓" : "✗"} ${result.message}`;
+    } catch (error) {
+      connectionTestStatus.textContent =
+        error instanceof Error ? `✗ ${error.message}` : "✗ The connection test failed.";
+    } finally {
+      testConnectionButton.disabled = false;
+    }
   })();
 });
 

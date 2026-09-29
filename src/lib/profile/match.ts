@@ -1,5 +1,6 @@
 import type { ExtractionRule, ProfileFact, ProfileFieldKind, StructuredProfile } from "./types";
 import { textSimilarity } from "../text/fuzzy-match";
+import { debugLog } from "../debug";
 
 // A "semantic key" is what a question label is asking for. It's broader than
 // ProfileFieldKind: it includes SUB-COMPONENTS (first/last name, DOB
@@ -450,10 +451,7 @@ export function matchQuestionToProfile(
   // (This is what stopped a mis-parsed department name from being filled into
   // "Full Name".) A rejected value becomes needs-input, never a wrong answer.
   if (!isPlausibleFor(key, trimmed)) {
-    console.log(
-      `EasyFilla(tier): rejected profile value for "${label}" — "${trimmed}" doesn't look like a valid ${key}. ` +
-        "Marking needs-input instead of filling something wrong.",
-    );
+    debugLog(`EasyFilla(tier): rejected a profile value for "${label}" as an invalid ${key}; needs user input.`);
     return { key, value: "", source, constrainedNoValue: true };
   }
 
@@ -461,13 +459,10 @@ export function matchQuestionToProfile(
   if (isChoice && options.length > 0) {
     const resolved = multiSelect ? resolveToOptions(trimmed, options).join(", ") : resolveToOption(trimmed, options);
     if (!resolved) {
-      console.log(
-        `EasyFilla(tier): "${label}" — profile ${key}="${trimmed}" matched none of ` +
-          `[${options.join(" | ")}]; leaving for you rather than filling free text.`,
-      );
+      debugLog(`EasyFilla(tier): profile value for "${label}" matched no available option; leaving it for review.`);
       return { key, value: "", source, constrainedNoValue: true };
     }
-    console.log(`EasyFilla(tier): "${label}" — profile ${key}="${trimmed}" → option "${resolved}"`);
+    debugLog(`EasyFilla(tier): profile value for "${label}" matched an available option.`);
     return { key, value: resolved, source };
   }
 

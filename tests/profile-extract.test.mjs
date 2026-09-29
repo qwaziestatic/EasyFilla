@@ -1,4 +1,4 @@
-import { extractProfileFromDocuments } from "./_bundle-extract.mjs";
+import { extractProfileFromDocuments } from "./_bundle-profile.mjs";
 
 const get = (facts, field) => facts.filter((f) => f.field === field).map((f) => f.value);
 const factFor = (facts, field) => facts.find((f) => f.field === field);

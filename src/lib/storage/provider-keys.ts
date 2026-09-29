@@ -21,6 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { isProviderId, type ProviderId } from "../ai/provider";
+import { touchSensitiveData } from "./sensitive-data";
 
 // Gemini's key keeps its original storage key so existing installs do not lose
 // it on upgrade. Anthropic gets a namespaced one.
@@ -34,16 +35,21 @@ export const DEFAULT_PROVIDER: ProviderId = "gemini";
 
 export async function saveApiKey(provider: ProviderId, apiKey: string): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS[provider]]: apiKey });
+  await touchSensitiveData();
 }
 
 export async function loadApiKey(provider: ProviderId): Promise<string | null> {
   const result = await chrome.storage.local.get(STORAGE_KEYS[provider]);
   const value = result[STORAGE_KEYS[provider]];
+  if (typeof value === "string" && value.length > 0) {
+    await touchSensitiveData();
+  }
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 export async function clearApiKey(provider: ProviderId): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEYS[provider]);
+  await touchSensitiveData();
 }
 
 /**

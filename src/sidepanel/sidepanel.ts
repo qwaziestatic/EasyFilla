@@ -17,9 +17,7 @@ import {
   type ScanAllFramesRequest,
 } from "../lib/messaging/messages";
 import type { MergedScan } from "../background/frame-registry";
-import { extractText, getExtractionDiagnostics, type ExtractionProgress } from "../lib/pdf/extractor";
-import { buildDiagnosticsReport, downloadDiagnosticsReport } from "../lib/diagnostics";
-import { generateStructuredPdf } from "../lib/pdf/generator";
+import type { ExtractionProgress } from "../lib/pdf/extractor";
 import {
   matchAnswersWithGemini,
   buildDossier,
@@ -31,6 +29,7 @@ import {
   MissingApiKeyError,
   GeminiRequestError,
   describeGeminiError,
+  mediaConsentRequired,
   DEFAULT_QUESTION_CHUNK,
   type QuestionForAi,
   type AnswerLanguage,
@@ -42,12 +41,25 @@ import { isComposable } from "../lib/compose/eligibility";
 import { fileToAttachment } from "../lib/dom/file-transfer";
 import { buildOrReuseProfile, clearProfile } from "../lib/profile/storage";
 import { clearDossier, loadCachedDossier, fileSetKey, type Dossier } from "../lib/ai/dossier";
+import { purgeExpiredSensitiveData } from "../lib/storage/sensitive-data";
+
+async function extractText(...args: Parameters<(typeof import("../lib/pdf/extractor"))["extractText"]>): Promise<string> {
+  const module = await import("../lib/pdf/extractor");
+  return module.extractText(...args);
+}
+
+async function generateStructuredPdf(
+  ...args: Parameters<(typeof import("../lib/pdf/generator"))["generateStructuredPdf"]>
+): Promise<Blob> {
+  const module = await import("../lib/pdf/generator");
+  return module.generateStructuredPdf(...args);
+}
 
 import { queueStats, onQueueStats, onQueueActivity } from "../lib/ai/request-queue";
 import { preflight, describeUsage, describeReset, type PreflightResult } from "../lib/ai/request-budget";
 import { loadLedger, cachedLedger, onQuotaChange } from "../lib/ai/quota-store";
 import { activeProvider } from "../lib/ai/active-provider";
-import { debugLog, initDebugLogging } from "../lib/debug";
+import { debugLog, initDebugLogging, safeUrl } from "../lib/debug";
 // B1 — the sidepanel reads only the BOOLEAN. The key string itself never
 // enters this module's scope.
 import { hasApiKey } from "../lib/storage/provider-keys";
@@ -131,6 +143,7 @@ const questionsList = document.getElementById("questions-list") as HTMLUListElem
 const documentUpload = document.getElementById("document-upload") as HTMLInputElement;
 const uploadedFilesList = document.getElementById("uploaded-files-list") as HTMLUListElement;
 const uploadSummaryText = document.getElementById("upload-summary") as HTMLParagraphElement;
+const mediaConsentCheckbox = document.getElementById("media-consent-checkbox") as HTMLInputElement;
 const clearFilesButton = document.getElementById("clear-files-button") as HTMLButtonElement;
 const dossierStatusText = document.getElementById("dossier-status") as HTMLParagraphElement;
 const fillReportSection = document.getElementById("fill-report") as HTMLElement;
@@ -193,13 +206,12 @@ function dossierInputs(): File[] {
     (u) => !extractedDocuments.some((doc) => doc.file === u.file),
   );
   if (excluded.length > 0) {
-    console.warn(
+    debugLog(
       `[EasyFilla][Dossier] ${rawUploads.length} raw upload(s) vs ${extractedDocuments.length} locally-extracted. ` +
-        `${excluded.length} file(s) produced no local text and are being sent to Stage A anyway:`,
-      excluded.map((u) => `${u.file.name} — ${u.extraction}: ${u.detail}`),
+        `${excluded.length} file(s) produced no local text and are being sent to Stage A anyway.`,
     );
   }
-  console.log(`[EasyFilla][Dossier] Stage A input = ${rawUploads.length} raw file(s).`);
+  debugLog(`[EasyFilla][Dossier] Stage A input = ${rawUploads.length} raw file(s).`);
   return rawUploads.map((u) => u.file);
 }
 
@@ -507,6 +519,7 @@ onQuotaChange(() => renderConnectionStatus());
 void loadLedger().then(() => renderConnectionStatus());
 // B4 — read the verbose-logging preference once, before anything logs.
 void initDebugLogging();
+void purgeExpiredSensitiveData();
 
 function setConnectionStatus(message: string, isError: boolean): void {
   lastConnectionMessage = message;
@@ -572,7 +585,7 @@ function reportFrameCoverage(merged: MergedScan): void {
   merged.frames.forEach((frame) => {
     if (frame.inaccessibleReason) {
       console.warn(
-        `EasyFilla(coverage): frame ${frame.frameId} (${frame.url}) INACCESSIBLE — ` +
+        `EasyFilla(coverage): frame ${frame.frameId} (${safeUrl(frame.url)}) INACCESSIBLE — ` +
           `${frame.inaccessibleReason}: ${frame.inaccessibleDetail}`,
       );
     } else {
@@ -585,7 +598,7 @@ function reportFrameCoverage(merged: MergedScan): void {
   // The ordering heuristic is best-effort across cross-origin boundaries. When
   // it can't place a frame it says so here rather than emitting a plausible
   // but wrong order silently.
-  merged.orderingWarnings.forEach((warning) => console.warn(`EasyFilla(order): ${warning}`));
+  merged.orderingWarnings.forEach(() => console.warn("EasyFilla(order): a frame could not be placed exactly; review the frame coverage notice."));
 
   const missing = missingOriginsFrom(merged);
   if (missing.length > 0) {
@@ -837,7 +850,7 @@ async function processUploadedFile(row: UploadedFileRow): Promise<void> {
     // extraction?", which the LENGTH and emptiness answer just as well. The
     // text itself is never logged, at any debug level — the debug flag is a
     // volume control, not a confidentiality boundary.
-    console.log(`EasyFilla(extract): "${row.file.name}" — ${text.length} chars of text recovered.`);
+      debugLog(`EasyFilla(extract): ${text.length} chars of text recovered.`);
     if (text.trim().length === 0) {
       row.progressText.textContent =
         "No text could be read from this file (image-only or empty). Contact matching may fail — try a text-based copy.";
@@ -1060,7 +1073,7 @@ rebuildDossierButton.addEventListener("click", () => {
       await clearDossier();
       await buildDossier(dossierInputs(), (stage) => {
         dossierStatusText.textContent = stage;
-      });
+      }, { allowMedia: mediaConsentCheckbox.checked });
       await refreshDossierStatus();
     } catch (error) {
       dossierStatusText.textContent = `Dossier rebuild failed: ${describeGeminiError(error)}`;
@@ -1070,6 +1083,8 @@ rebuildDossierButton.addEventListener("click", () => {
     }
   })();
 });
+
+mediaConsentCheckbox.addEventListener("change", setUploadSummary);
 
 // Shows the running total so it's obvious files accumulate rather than replace.
 //
@@ -1086,7 +1101,10 @@ function setUploadSummary(): void {
     uploadSummaryText.textContent = "";
   } else {
     const base = `${count} document${count === 1 ? "" : "s"} loaded (${chars.toLocaleString()} characters). Adding more keeps these.`;
-    uploadSummaryText.textContent = base;
+    const mediaSelected = mediaConsentRequired(rawUploads.map((upload) => upload.file));
+    uploadSummaryText.textContent = mediaSelected && !mediaConsentCheckbox.checked
+      ? `${base} Audio/video requires consent before transcription.`
+      : base;
     // Async, appended when it resolves — the count must not wait on a
     // storage read to paint.
     void (async () => {
@@ -1108,14 +1126,20 @@ function setUploadSummary(): void {
       uploadSummaryText.textContent = `${base} ${detail}`;
     })();
   }
-  exportDiagnosticsButton.disabled = getExtractionDiagnostics().length === 0;
+  exportDiagnosticsButton.disabled = extractedDocuments.length === 0;
   void refreshDossierStatus();
 }
 
 exportDiagnosticsButton.addEventListener("click", () => {
-  const report = buildDiagnosticsReport(profile);
-  downloadDiagnosticsReport(report);
-  console.log(`EasyFilla(diagnostics): exported report (${report.length} chars) for ${getExtractionDiagnostics().length} document(s).`);
+  void (async () => {
+    const [{ buildDiagnosticsReport, downloadDiagnosticsReport }, { getExtractionDiagnostics }] = await Promise.all([
+      import("../lib/diagnostics"),
+      import("../lib/pdf/extractor"),
+    ]);
+    const report = buildDiagnosticsReport(profile);
+    downloadDiagnosticsReport(report);
+    debugLog(`EasyFilla(diagnostics): exported report (${report.length} chars) for ${getExtractionDiagnostics().length} document(s).`);
+  })();
 });
 
 scanButton.addEventListener("click", () => {
@@ -1512,7 +1536,7 @@ async function exportFormToPdf(): Promise<void> {
     });
 
     setGenerateStatus("Building PDF…");
-    const blob = generateStructuredPdf(result.formTitle, result.questions, {
+    const blob = await generateStructuredPdf(result.formTitle, result.questions, {
       sectionTitles: result.sectionTitles,
       logoDataUrl,
     });
@@ -1655,7 +1679,9 @@ async function generateAiAnsweredReport(): Promise<void> {
     setAiReportStatus("Preparing your document dossier…");
     try {
       const built = await withDeadline(
-        buildDossier(dossierInputs(), (stage) => setAiReportStatus(stage)),
+        buildDossier(dossierInputs(), (stage) => setAiReportStatus(stage), {
+          allowMedia: mediaConsentCheckbox.checked,
+        }),
         AI_STEP_DEADLINE_MS,
       );
       stageADossier = built.dossier;
@@ -1901,7 +1927,7 @@ async function generateAiAnsweredReport(): Promise<void> {
             states.set(index, "needs_user_input");
             categories.set(index, "not_in_documents");
             if (result.reasoning) {
-              console.log(`EasyFilla(StageB): Q${index} needs input — "${result.reasoning}"`);
+              debugLog(`EasyFilla(StageB): Q${index} needs input; reasoning is available in the review UI.`);
             }
             return;
           }
@@ -1914,8 +1940,7 @@ async function generateAiAnsweredReport(): Promise<void> {
               agreement.groups.map((g) => `"${g.value}" (${g.files.join(", ")})`).join("; "),
             );
             console.warn(
-              `EasyFilla(provenance): Q${index} conflicting values across documents — none selected.`,
-              agreement.groups,
+              `EasyFilla(provenance): Q${index} has ${agreement.groups.length} conflicting evidence group(s); none selected.`,
             );
             return;
           }
@@ -1934,7 +1959,7 @@ async function generateAiAnsweredReport(): Promise<void> {
               // FIX 2: list every corroborating file — plurality is strength.
               sources.set(index, citedFiles.join(", "));
               if (citedFiles.length > 1) {
-                console.log(`EasyFilla(provenance): Q${index} corroborated by ${citedFiles.length} files: ${citedFiles.join(", ")}`);
+                debugLog(`EasyFilla(provenance): Q${index} corroborated by ${citedFiles.length} files.`);
               }
             } else {
               states.set(index, "needs_user_input");
@@ -2043,7 +2068,7 @@ async function generateAiAnsweredReport(): Promise<void> {
     const seeds = new Map<number, string>();
 
     setAiReportStatus("Building PDF…");
-    const blob = generateStructuredPdf(response.formTitle, response.questions, {
+    const blob = await generateStructuredPdf(response.formTitle, response.questions, {
       answers,
       suggestions,
       sectionTitles,
@@ -2957,10 +2982,7 @@ function createRefinementRow(
       debugLog(`EasyFilla(review): Q${index} suggestion "${wanted}" fuzzy-matched to option "${chosen}".`);
     }
     if (!chosen) {
-      console.log(
-        `EasyFilla(review): Q${index} suggestion "${wanted}" matched NO option among ` +
-          `[${question.options.join(" | ")}] — left unselected for you to choose.`,
-      );
+      debugLog(`EasyFilla(review): Q${index} suggestion matched no option; left unselected for review.`);
     }
     return chosen;
   };
@@ -3345,7 +3367,7 @@ async function saveManualRefinements(): Promise<void> {
       );
     }
 
-    const blob = generateStructuredPdf(report.formTitle, report.questions, {
+    const blob = await generateStructuredPdf(report.formTitle, report.questions, {
       answers: report.answers,
       suggestions: report.suggestions,
       sectionTitles: report.sectionTitles,

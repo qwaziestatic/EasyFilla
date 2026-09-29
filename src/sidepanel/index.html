@@ -299,9 +299,18 @@
              missed; this sits at the moment the advice is actionable. -->
         <p id="input-note-files" class="input-note" role="note"></p>
         <label class="file-input-label" for="document-upload">
-          <input id="document-upload" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.txt" />
+          <input
+            id="document-upload"
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,.heic,.heif,.txt,.docx,.xlsx,.pptx,.odt,.ods,.odp,.rtf,.csv,.zip,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm,.avi,.mkv"
+          />
         </label>
         <p id="upload-summary" class="panel__hint" role="status" aria-live="polite"></p>
+        <label class="checkbox-row">
+          <input id="media-consent-checkbox" type="checkbox" />
+          <span>I consent to sending audio/video files to Google Gemini for transcription (maximum 100 MB per file).</span>
+        </label>
         <ul id="uploaded-files-list" class="uploaded-files-list"></ul>
         <p id="dossier-status" class="panel__hint" role="status" aria-live="polite">
           Dossier: not built yet.
@@ -316,7 +325,9 @@
           </button>
         </div>
         <p class="panel__hint">
-          Diagnostics show exactly what was read from each file and what was derived from it. Saved to your
+          Supports PDF, common images, TXT, DOCX/XLSX/PPTX, ODT/ODS/ODP, RTF, CSV, and ZIP archives containing one
+          supported document. Legacy DOC/XLS/PPT are detected with an actionable conversion message. Audio/video can be
+          transcribed by Google Gemini only after consent; the original media is sent to Google. Diagnostics show exactly what was read from each file and what was derived from it. Saved to your
           computer — it contains your document text, so review it before sharing.
         </p>
       </section>

@@ -300,19 +300,26 @@ export function dossierReuseVerdict(
 }
 
 const DOSSIER_KEY = "easyfilla.dossier";
+import { touchSensitiveData } from "../storage/sensitive-data";
 
 export async function loadCachedDossier(): Promise<CachedDossier | null> {
   const result = await chrome.storage.local.get(DOSSIER_KEY);
   const value = result[DOSSIER_KEY] as CachedDossier | undefined;
-  return value && typeof value.key === "string" && value.dossier ? value : null;
+  const dossier = value && typeof value.key === "string" && value.dossier ? value : null;
+  if (dossier) {
+    await touchSensitiveData();
+  }
+  return dossier;
 }
 
 export async function saveDossier(entry: CachedDossier): Promise<void> {
   await chrome.storage.local.set({ [DOSSIER_KEY]: entry });
+  await touchSensitiveData();
 }
 
 export async function clearDossier(): Promise<void> {
   await chrome.storage.local.remove(DOSSIER_KEY);
+  await touchSensitiveData();
 }
 
 // Counts the scalar facts, for the "Dossier: N files, M facts extracted" line.

@@ -1,5 +1,6 @@
 import { PROFILE_PIPELINE_VERSION, type ProfileFact, type StructuredProfile } from "./types";
 import { extractProfileFromDocuments } from "./extract";
+import { touchSensitiveData } from "../storage/sensitive-data";
 
 // One profile persisted per browser, keyed to the current document set. Kept
 // in chrome.storage.local (same device-only policy as the API key). Manual
@@ -31,17 +32,24 @@ export function documentSetKey(documents: { fileName: string; text: string }[]):
 export async function loadProfile(): Promise<StructuredProfile | null> {
   const result = await chrome.storage.local.get(STORAGE_KEY);
   const value = result[STORAGE_KEY];
-  return value && typeof value === "object" && Array.isArray((value as StructuredProfile).facts)
-    ? (value as StructuredProfile)
-    : null;
+  const profile =
+    value && typeof value === "object" && Array.isArray((value as StructuredProfile).facts)
+      ? (value as StructuredProfile)
+      : null;
+  if (profile) {
+    await touchSensitiveData();
+  }
+  return profile;
 }
 
 export async function saveProfile(profile: StructuredProfile): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEY]: { ...profile, updatedAt: Date.now() } });
+  await touchSensitiveData();
 }
 
 export async function clearProfile(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEY);
+  await touchSensitiveData();
 }
 
 // Returns the profile for the given documents: reuses the stored one (with
@@ -55,7 +63,7 @@ export async function buildOrReuseProfile(
 
   if (stored && stored.documentSetKey === key) {
     if (stored.pipelineVersion === PROFILE_PIPELINE_VERSION) {
-      console.log(`EasyFilla(profile): reusing stored profile for document set (${stored.facts.length} facts).`);
+      console.log(`EasyFilla(profile): reusing stored profile (${stored.facts.length} facts).`);
       return stored;
     }
     console.log(
@@ -74,10 +82,7 @@ export async function buildOrReuseProfile(
   const overridden = new Set(manual.map((f) => f.field));
   const facts = [...manual, ...derived.filter((f) => !overridden.has(f.field))];
   if (manual.length > 0) {
-    console.log(
-      `EasyFilla(profile): kept ${manual.length} manual correction(s):`,
-      manual.map((f) => `${f.field}="${f.value}"`),
-    );
+    console.log(`EasyFilla(profile): kept ${manual.length} manual correction(s).`);
   }
 
   const profile: StructuredProfile = {
@@ -87,10 +92,7 @@ export async function buildOrReuseProfile(
     updatedAt: Date.now(),
   };
   await saveProfile(profile);
-  console.log(
-    `EasyFilla(profile): extracted ${facts.length} deterministic fact(s):`,
-    facts.map((f) => `${f.field}=${f.value} [${f.confidence}, ${f.source}]`),
-  );
+  console.log(`EasyFilla(profile): extracted ${facts.length} deterministic fact(s).`);
   return profile;
 }
 

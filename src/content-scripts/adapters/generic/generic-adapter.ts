@@ -1,6 +1,7 @@
 import { scanGenericPage, harvestChoiceOptions, applyHarvestToCoverage } from "./detect";
 import { fillVisibleGenericSection, scrollToGenericQuestion } from "./fill";
 import { buildNavCandidates, resolveNav } from "../nav-resolver";
+import { queryAllOpenRoots } from "../../shared/dom-roots";
 import type { FormAdapter } from "../adapter";
 
 // Generic wizard nav controls: real <button>/<a>/[role=button] elements.
@@ -10,8 +11,8 @@ import type { FormAdapter } from "../adapter";
 // label list here anymore — that lived in this file before and broke every
 // non-English form.
 function navCandidates() {
-  const elements = Array.from(
-    document.querySelectorAll<HTMLElement>('button, input[type="button"], input[type="submit"], [role="button"], a'),
+  const elements = queryAllOpenRoots<HTMLElement>(
+    'button, input[type="button"], input[type="submit"], [role="button"], [role="link"], a',
   );
   return buildNavCandidates(elements);
 }

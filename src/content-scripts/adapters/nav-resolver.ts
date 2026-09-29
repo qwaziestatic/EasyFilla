@@ -22,6 +22,8 @@ export interface NavCandidate {
 function buttonLabel(element: HTMLElement): string {
   return (
     element.getAttribute("aria-label") ||
+    element.getAttribute("title") ||
+    element.getAttribute("data-label") ||
     (element as HTMLInputElement).value ||
     element.textContent ||
     ""
@@ -34,10 +36,34 @@ function buttonLabel(element: HTMLElement): string {
 // It can NEVER promote a submit control: Guard 1 runs first.
 function relHint(element: HTMLElement): NavKind | null {
   const rel = (element.getAttribute("rel") ?? "").toLowerCase();
-  if (/next/.test(rel)) {
+  if (/\bnext\b/.test(rel)) {
     return "next";
   }
-  if (/(prev|previous)/.test(rel)) {
+  if (/\b(prev|previous)\b/.test(rel)) {
+    return "back";
+  }
+  return null;
+}
+
+function attributeHint(element: HTMLElement): NavKind | null {
+  const values = [
+    element.getAttribute("data-action"),
+    element.getAttribute("data-nav"),
+    element.getAttribute("data-testid"),
+    element.getAttribute("id"),
+    element.getAttribute("name"),
+    element.getAttribute("aria-label"),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (/\b(submit|finish|complete|send)\b/.test(values)) {
+    return "submit";
+  }
+  if (/\b(next|continue|proceed|forward)\b/.test(values) || /^(→|›|»|>)$/.test(values.trim())) {
+    return "next";
+  }
+  if (/\b(back|prev|previous|return)\b/.test(values) || /^(←|‹|«|<)$/.test(values.trim())) {
     return "back";
   }
   return null;
@@ -103,7 +129,15 @@ export function resolveNav(candidates: NavCandidate[], direction: "next" | "back
       candidate,
       match:
         dictionary ??
-        (rel ? { kind: rel, language: "rel-attribute", matchedLabel: `rel="${rel}"` } : null),
+        (rel
+          ? { kind: rel, language: "rel-attribute", matchedLabel: `rel="${rel}"` }
+          : (attributeHint(candidate.element)
+            ? {
+                kind: attributeHint(candidate.element) as NavKind,
+                language: "semantic-attribute",
+                matchedLabel: buttonLabel(candidate.element),
+              }
+            : null)),
     };
   });
 
@@ -174,4 +208,3 @@ export function resolveNav(candidates: NavCandidate[], direction: "next" | "back
         : "no 'back' control found",
   };
 }
-

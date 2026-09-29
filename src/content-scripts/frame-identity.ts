@@ -16,6 +16,7 @@
 
 import { setFrameId } from "./adapters/identity";
 import { MESSAGE_TYPE, type FrameHelloRequest, type FrameHelloResponse } from "../lib/messaging/messages";
+import { debugLog, safeUrl } from "../lib/debug";
 
 export interface FrameIdentity {
   frameId: number;
@@ -69,9 +70,7 @@ export function ensureFrameIdentity(): Promise<FrameIdentity | null> {
           // setFrameId BEFORE anything can scan. Ordering is the whole point.
           setFrameId(response.frameId);
           resolvedIdentity = { frameId: response.frameId, url: response.url, tabId: response.tabId };
-          console.log(
-            `EasyFilla(frame): identified as frame ${response.frameId} of tab ${response.tabId} — ${response.url}`,
-          );
+          debugLog(`EasyFilla(frame): identified as frame ${response.frameId} of tab ${response.tabId} — ${safeUrl(response.url)}`);
           return resolvedIdentity;
         }
       }
@@ -79,7 +78,7 @@ export function ensureFrameIdentity(): Promise<FrameIdentity | null> {
         `this frame asked the extension for its frameId ${HELLO_ATTEMPTS} times and got no answer, so it will not ` +
         "scan — an unidentified frame's fields would collide with another frame's in the deduplication keyspace " +
         "and silently delete real questions. Reload the page (or the extension) to retry.";
-      console.warn(`EasyFilla(frame): NOT identified — ${failureReason}`);
+      console.warn("EasyFilla(frame): NOT identified; the frame will not be scanned.");
       return null;
     })();
   }

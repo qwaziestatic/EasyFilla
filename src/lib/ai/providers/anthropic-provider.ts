@@ -1,13 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 // ANTHROPIC PROVIDER (TASK E2)
 //
-// ⚠️ IMPLEMENTED BUT NEVER EXECUTED. No live request has been made against
-// this file. It belongs to §1b, not to §1's verified facts, and must not be
-// promoted until a real request/response has been seen.
-//
-// ⚠️ NOTHING HERE IS REACHABLE FROM AN EXISTING CALL SITE. E2 is purely
-// additive by instruction; wiring is E3. `registerProvider` is deliberately
-// NOT called at module scope — see the bottom of this file.
+// The provider is wired through active-provider.ts, which registers it only
+// after the application has selected the Anthropic provider. Keeping
+// registration out of this module preserves its isolated, testable client
+// implementation while the active-provider seam controls reachability.
 //
 // ── DOCS (fetched 2026-07-28/29; see §1b) ────────────────────────────────
 //   Messages API      https://platform.claude.com/docs/en/api/messages
