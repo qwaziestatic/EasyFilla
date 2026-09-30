@@ -9,6 +9,10 @@ AI-drafted answers grounded in your own documents → review → fill.
 You supply your own API key. Nothing is sent to any server operated by this
 project.
 
+## Side panel
+
+![EasyFilla side panel](docs/sidepanel-screenshot.png)
+
 ---
 
 ## How it works
